@@ -6,6 +6,7 @@ const PermissionOverwrites = require('./PermissionOverwrites');
 const Role = require('./Role');
 const { Error, TypeError } = require('../errors');
 const Collection = require('../util/Collection');
+const { ChannelTypes } = require('../util/Constants');
 const Permissions = require('../util/Permissions');
 const Util = require('../util/Util');
 
@@ -213,7 +214,7 @@ class GuildChannel extends Channel {
   }
 
   /**
-   * Updates Overwrites for a user or role in this channel. (creates if non-existent)
+   * Updates permission overwrites for a user or role in this channel, or creates an entry if not already present.
    * @param {RoleResolvable|UserResolvable} userOrRole The user or role to update
    * @param {PermissionOverwriteOptions} options The options for the update
    * @param {string} [reason] Reason for creating/editing this overwrite
@@ -236,13 +237,13 @@ class GuildChannel extends Channel {
   }
 
   /**
-   * Overwrites the permissions for a user or role in this channel. (replaces if existent)
+   * Creates permission overwrites for a user or role in this channel, or replaces them if already present.
    * @param {RoleResolvable|UserResolvable} userOrRole The user or role to update
    * @param {PermissionOverwriteOptions} options The options for the update
    * @param {string} [reason] Reason for creating/editing this overwrite
    * @returns {Promise<GuildChannel>}
    * @example
-   * // Create or Replace permissions overwrites for a message author
+   * // Create or Replace permission overwrites for a message author
    * message.channel.createOverwrite(message.author, {
    *   SEND_MESSAGES: false
    * })
@@ -294,6 +295,7 @@ class GuildChannel extends Channel {
    * The data for a guild channel.
    * @typedef {Object} ChannelData
    * @property {string} [name] The name of the channel
+   * @property {string} [type] The type of the the channel (only conversion between text and news is supported)
    * @property {number} [position] The position of the channel
    * @property {string} [topic] The topic of the text channel
    * @property {boolean} [nsfw] Whether the channel is NSFW
@@ -355,6 +357,7 @@ class GuildChannel extends Channel {
     const newData = await this.client.api.channels(this.id).patch({
       data: {
         name: (data.name || this.name).trim(),
+        type: data.type ? ChannelTypes[data.type.toUpperCase()] : this.type,
         topic: data.topic,
         nsfw: data.nsfw,
         bitrate: data.bitrate || this.bitrate,
@@ -367,9 +370,7 @@ class GuildChannel extends Channel {
       reason,
     });
 
-    const clone = this._clone();
-    clone._patch(newData);
-    return clone;
+    return this.client.actions.ChannelUpdate.handle(newData).updated;
   }
 
   /**

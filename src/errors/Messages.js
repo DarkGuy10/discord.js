@@ -13,7 +13,7 @@ const Messages = {
   WS_CONNECTION_EXISTS: 'There is already an existing WebSocket connection.',
   WS_NOT_OPEN: (data = 'data') => `Websocket not open to send ${data}`,
 
-  BITFIELD_INVALID: 'Invalid bitfield flag or number.',
+  BITFIELD_INVALID: bit => `Invalid bitfield flag or number: ${bit}.`,
 
   SHARDING_INVALID: 'Invalid shard settings were provided.',
   SHARDING_REQUIRED: 'This session would have handled too many guilds - Sharding is required.',
@@ -50,7 +50,6 @@ const Messages = {
   VOICE_TOKEN_ABSENT: 'Token not provided from voice server packet.',
   VOICE_SESSION_ABSENT: 'Session ID not supplied.',
   VOICE_INVALID_ENDPOINT: 'Invalid endpoint received.',
-  VOICE_NO_BROWSER: 'Voice connections are not available in browsers.',
   VOICE_CONNECTION_ATTEMPTS_EXCEEDED: attempts => `Too many connection attempts (${attempts}).`,
   VOICE_JOIN_SOCKET_CLOSED: 'Tried to send join packet, but the WebSocket is not open.',
   VOICE_PLAY_INTERFACE_NO_BROADCAST: 'A broadcast cannot be played in this context.',
