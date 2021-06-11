@@ -2,7 +2,6 @@
 
 const Base = require('./Base');
 const IntegrationApplication = require('./IntegrationApplication');
-const { Error } = require('../errors');
 const { Endpoints } = require('../util/Constants');
 const Permissions = require('../util/Permissions');
 
@@ -110,8 +109,6 @@ class Invite extends Base {
      * @type {?number}
      */
     this.createdTimestamp = 'created_at' in data ? new Date(data.created_at).getTime() : null;
-
-    this._expiresTimestamp = 'expires_at' in data ? new Date(data.expires_at).getTime() : null;
   }
 
   /**
@@ -144,10 +141,7 @@ class Invite extends Base {
    * @readonly
    */
   get expiresTimestamp() {
-    return (
-      this._expiresTimestamp ??
-      (this.createdTimestamp && this.maxAge ? this.createdTimestamp + this.maxAge * 1000 : null)
-    );
+    return this.createdTimestamp && this.maxAge ? this.createdTimestamp + this.maxAge * 1000 : null;
   }
 
   /**

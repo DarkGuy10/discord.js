@@ -255,7 +255,7 @@ class Client extends BaseClient {
     const code = DataResolver.resolveInviteCode(invite);
     return this.api
       .invites(code)
-      .get({ query: { with_counts: true, with_expiration: true } })
+      .get({ query: { with_counts: true } })
       .then(data => new Invite(this, data));
   }
 
@@ -290,7 +290,7 @@ class Client extends BaseClient {
     return this.api
       .webhooks(id, token)
       .get()
-      .then(data => new Webhook(this, { token, ...data }));
+      .then(data => new Webhook(this, data));
   }
 
   /**
@@ -491,12 +491,6 @@ class Client extends BaseClient {
     }
     if (typeof options.retryLimit !== 'number' || isNaN(options.retryLimit)) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'retryLimit', 'a number');
-    }
-    if (
-      typeof options.rejectOnRateLimit !== 'undefined' &&
-      !(typeof options.rejectOnRateLimit === 'function' || Array.isArray(options.rejectOnRateLimit))
-    ) {
-      throw new TypeError('CLIENT_INVALID_OPTION', 'rejectOnRateLimit', 'an array or a function');
     }
   }
 }

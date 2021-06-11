@@ -1,6 +1,5 @@
 'use strict';
 
-const { Error } = require('../errors');
 const { Events } = require('../util/Constants');
 const Util = require('../util/Util');
 
@@ -128,33 +127,29 @@ class ShardClientUtil {
 
   /**
    * Evaluates a script or function on all shards, or a given shard, in the context of the {@link Client}s.
-   * @param {Function} script JavaScript to run on each shard
-   * @param {BroadcastEvalOptions} [options={}] The options for the broadcast
+   * @param {string|Function} script JavaScript to run on each shard
+   * @param {number} [shard] Shard to run script on, all if undefined
    * @returns {Promise<*>|Promise<Array<*>>} Results of the script execution
    * @example
-   * client.shard.broadcastEval(client => client.guilds.cache.size)
+   * client.shard.broadcastEval('this.guilds.cache.size')
    *   .then(results => console.log(`${results.reduce((prev, val) => prev + val, 0)} total guilds`))
    *   .catch(console.error);
    * @see {@link ShardingManager#broadcastEval}
    */
-  broadcastEval(script, options = {}) {
+  broadcastEval(script, shard) {
     return new Promise((resolve, reject) => {
       const parent = this.parentPort || process;
-      if (typeof script !== 'function') {
-        reject(new TypeError('SHARDING_INVALID_EVAL_BROADCAST'));
-        return;
-      }
-      script = `(${script})(this, ${JSON.stringify(options.context)})`;
+      script = typeof script === 'function' ? `(${script})(this)` : script;
 
       const listener = message => {
-        if (!message || message._sEval !== script || message._sEvalShard !== options.shard) return;
+        if (!message || message._sEval !== script || message._sEvalShard !== shard) return;
         parent.removeListener('message', listener);
         if (!message._error) resolve(message._result);
         else reject(Util.makeError(message._error));
       };
       parent.on('message', listener);
 
-      this.send({ _sEval: script, _sEvalShard: options.shard }).catch(err => {
+      this.send({ _sEval: script, _sEvalShard: shard }).catch(err => {
         parent.removeListener('message', listener);
         reject(err);
       });
@@ -205,14 +200,13 @@ class ShardClientUtil {
    */
   _respond(type, message) {
     this.send(message).catch(err => {
-      const error = new Error(`Error when sending ${type} response to master process: ${err.message}`);
-      error.stack = err.stack;
+      err.message = `Error when sending ${type} response to master process: ${err.message}`;
       /**
        * Emitted when the client encounters an error.
        * @event Client#error
        * @param {Error} error The error encountered
        */
-      this.client.emit(Events.ERROR, error);
+      this.client.emit(Events.ERROR, err);
     });
   }
 

@@ -16,7 +16,6 @@
       "esnext.symbol"
     ],
     "sourceMap": false,
-    "skipDefaultLibCheck": true,
-    "skipLibCheck": true
+    "skipDefaultLibCheck": true
   }
 }

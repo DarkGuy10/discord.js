@@ -37,7 +37,7 @@ class GuildDeleteAction extends Action {
       }
 
       for (const channel of guild.channels.cache.values()) this.client.channels.remove(channel.id);
-      client.voice.adapters.get(data.id)?.destroy();
+      guild.me?.voice.connection?.disconnect();
 
       // Delete guild
       client.guilds.cache.delete(guild.id);

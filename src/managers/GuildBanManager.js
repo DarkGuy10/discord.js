@@ -1,7 +1,6 @@
 'use strict';
 
 const BaseManager = require('./BaseManager');
-const { TypeError, Error } = require('../errors');
 const GuildBan = require('../structures/GuildBan');
 const GuildMember = require('../structures/GuildMember');
 const Collection = require('../util/Collection');
@@ -121,16 +120,11 @@ class GuildBanManager extends BaseManager {
   }
 
   /**
-   * Options for banning a user.
-   * @typedef {Object} BanOptions
-   * @property {number} [days] Number of days of messages to delete, must be between 0 and 7, inclusive
-   * @property {string} [reason] Reason for banning
-   */
-
-  /**
    * Bans a user from the guild.
    * @param {UserResolvable} user The user to ban
-   * @param {BanOptions} [options] Options for the ban
+   * @param {Object} [options] Options for the ban
+   * @param {number} [options.days=0] Number of days of messages to delete, must be between 0 and 7, inclusive
+   * @param {string} [options.reason] Reason for banning
    * @returns {Promise<GuildMember|User|Snowflake>} Result object will be resolved as specifically as possible.
    * If the GuildMember cannot be resolved, the User will instead be attempted to be resolved. If that also cannot
    * be resolved, the user ID will be the result.
