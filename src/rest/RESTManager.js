@@ -8,19 +8,16 @@ const Collection = require('../util/Collection');
 const { Endpoints } = require('../util/Constants');
 
 class RESTManager {
-  constructor(client) {
+  constructor(client, tokenPrefix = 'Bot') {
     this.client = client;
     this.handlers = new Collection();
+    this.tokenPrefix = tokenPrefix;
     this.versioned = true;
-    this.globalLimit = client.options.restGlobalRateLimit > 0 ? client.options.restGlobalRateLimit : Infinity;
-    this.globalRemaining = this.globalLimit;
-    this.globalReset = null;
-    this.globalDelay = null;
+    this.globalTimeout = null;
     if (client.options.restSweepInterval > 0) {
-      const interval = client.setInterval(() => {
+      client.setInterval(() => {
         this.handlers.sweep(handler => handler._inactive);
       }, client.options.restSweepInterval * 1000);
-      interval.unref();
     }
   }
 
@@ -30,7 +27,7 @@ class RESTManager {
 
   getAuth() {
     const token = this.client.token || this.client.accessToken;
-    if (token) return token;
+    if (token) return `${token}`;
     throw new Error('TOKEN_MISSING');
   }
 

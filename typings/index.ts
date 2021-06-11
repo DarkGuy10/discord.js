@@ -1,10 +1,8 @@
 /// <reference path="index.d.ts" />
 
-import { Client, Intents, Message, MessageAttachment, MessageEmbed } from 'discord.js';
+import { Client, Message, MessageAttachment, MessageEmbed } from 'discord.js';
 
-const client: Client = new Client({
-  intents: Intents.NON_PRIVILEGED,
-});
+const client: Client = new Client();
 
 client.on('ready', () => {
   console.log(`Client is logged in as ${client.user!.tag} and ready!`);
@@ -35,6 +33,7 @@ client.on('message', ({ channel }) => {
   assertIsMessage(channel.send('string'));
   assertIsMessage(channel.send({}));
   assertIsMessage(channel.send({ embed: {} }));
+  assertIsMessage(channel.send({ another: 'property' }, {}));
 
   const attachment = new MessageAttachment('file.png');
   const embed = new MessageEmbed();
@@ -42,6 +41,7 @@ client.on('message', ({ channel }) => {
   assertIsMessage(channel.send(embed));
   assertIsMessage(channel.send([attachment, embed]));
 
+  assertIsMessageArray(channel.send(Symbol('another primitive'), { split: true }));
   assertIsMessageArray(channel.send({ split: true }));
 
   // @ts-expect-error

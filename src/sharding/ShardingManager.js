@@ -19,28 +19,23 @@ const Util = require('../util/Util');
  */
 class ShardingManager extends EventEmitter {
   /**
-   * The mode to spawn shards with for a {@link ShardingManager}. Either "process" to use child processes, or
+   * The mode to spawn shards with for a {@link ShardingManager}: either "process" to use child processes, or
    * "worker" to use [Worker threads](https://nodejs.org/api/worker_threads.html).
-   * @typedef {string} ShardingManagerMode
-   */
-
-  /**
-   * The options to spawn shards with for a {@link ShardingManager},
-   * @typedef {Object} ShardingManagerOptions
-   * @property {string|number} [totalShards='auto'] Number of total shards of all shard managers or "auto"
-   * @property {string|number[]} [shardList='auto'] List of shards to spawn or "auto"
-   * @property {ShardingManagerMode} [mode='process'] Which mode to use for shards
-   * @property {boolean} [respawn=true] Whether shards should automatically respawn upon exiting
-   * @property {string[]} [shardArgs=[]] Arguments to pass to the shard script when spawning
-   * (only available when mode is set to 'process')
-   * @property {string} [execArgv=[]] Arguments to pass to the shard script executable when spawning
-   * (only available when mode is set to 'process')
-   * @property {string} [token] Token to use for automatic shard count and passing to shards
+   * @typedef {Object} ShardingManagerMode
    */
 
   /**
    * @param {string} file Path to your shard script file
-   * @param {ShardingManagerOptions} [options] Options for the sharding manager
+   * @param {Object} [options] Options for the sharding manager
+   * @param {string|number} [options.totalShards='auto'] Number of total shards of all shard managers or "auto"
+   * @param {string|number[]} [options.shardList='auto'] List of shards to spawn or "auto"
+   * @param {ShardingManagerMode} [options.mode='process'] Which mode to use for shards
+   * @param {boolean} [options.respawn=true] Whether shards should automatically respawn upon exiting
+   * @param {string[]} [options.shardArgs=[]] Arguments to pass to the shard script when spawning
+   * (only available when using the `process` mode)
+   * @param {string[]} [options.execArgv=[]] Arguments to pass to the shard script executable when spawning
+   * (only available when using the `process` mode)
+   * @param {string} [options.token] Token to use for automatic shard count and passing to shards
    */
   constructor(file, options = {}) {
     super();
@@ -166,13 +161,13 @@ class ShardingManager extends EventEmitter {
 
   /**
    * Spawns multiple shards.
-   * @param {Object} [options] Options for spawning shards
-   * @param {number|string} [options.amount=this.totalShards] Number of shards to spawn
-   * @param {number} [options.delay=5500] How long to wait in between spawning each shard (in milliseconds)
-   * @param {number} [options.timeout=30000] The amount in milliseconds to wait until the {@link Client} has become
+   * @param {number|string} [amount=this.totalShards] Number of shards to spawn
+   * @param {number} [delay=5500] How long to wait in between spawning each shard (in milliseconds)
+   * @param {number} [spawnTimeout=30000] The amount in milliseconds to wait until the {@link Client} has become ready
+   * before resolving. (-1 or Infinity for no wait)
    * @returns {Promise<Collection<number, Shard>>}
    */
-  async spawn({ amount = this.totalShards, delay = 5500, timeout = 30000 } = {}) {
+  async spawn(amount = this.totalShards, delay = 5500, spawnTimeout) {
     // Obtain/verify the number of shards to spawn
     if (amount === 'auto') {
       amount = await Util.fetchRecommendedShards(this.token);
@@ -207,7 +202,7 @@ class ShardingManager extends EventEmitter {
     for (const shardID of this.shardList) {
       const promises = [];
       const shard = this.createShard(shardID);
-      promises.push(shard.spawn(timeout));
+      promises.push(shard.spawn(spawnTimeout));
       if (delay > 0 && this.shards.size !== this.shardList.length) promises.push(Util.delayFor(delay));
       await Promise.all(promises); // eslint-disable-line no-await-in-loop
     }
@@ -275,18 +270,17 @@ class ShardingManager extends EventEmitter {
 
   /**
    * Kills all running shards and respawns them.
-   * @param {Object} [options] Options for respawning shards
-   * @param {number} [options.shardDelay=5000] How long to wait between shards (in milliseconds)
-   * @param {number} [options.respawnDelay=500] How long to wait between killing a shard's process and restarting it
+   * @param {number} [shardDelay=5000] How long to wait between shards (in milliseconds)
+   * @param {number} [respawnDelay=500] How long to wait between killing a shard's process and restarting it
    * (in milliseconds)
-   * @param {number} [options.timeout=30000] The amount in milliseconds to wait for a shard to become ready before
+   * @param {number} [spawnTimeout=30000] The amount in milliseconds to wait for a shard to become ready before
    * continuing to another. (-1 or Infinity for no wait)
    * @returns {Promise<Collection<string, Shard>>}
    */
-  async respawnAll({ shardDelay = 5000, respawnDelay = 500, timeout = 30000 } = {}) {
+  async respawnAll(shardDelay = 5000, respawnDelay = 500, spawnTimeout) {
     let s = 0;
     for (const shard of this.shards.values()) {
-      const promises = [shard.respawn({ respawnDelay, timeout })];
+      const promises = [shard.respawn(respawnDelay, spawnTimeout)];
       if (++s < this.shards.size && shardDelay > 0) promises.push(Util.delayFor(shardDelay));
       await Promise.all(promises); // eslint-disable-line no-await-in-loop
     }

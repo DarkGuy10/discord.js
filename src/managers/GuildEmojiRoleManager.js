@@ -27,12 +27,22 @@ class GuildEmojiRoleManager {
   }
 
   /**
+   * The filtered collection of roles of the guild emoji
+   * @type {Collection<Snowflake, Role>}
+   * @private
+   * @readonly
+   */
+  get _roles() {
+    return this.guild.roles.cache.filter(role => this.emoji._roles.includes(role.id));
+  }
+
+  /**
    * The cache of roles belonging to this emoji
    * @type {Collection<Snowflake, Role>}
    * @readonly
    */
   get cache() {
-    return this.guild.roles.cache.filter(role => this.emoji._roles.includes(role.id));
+    return this._roles;
   }
 
   /**
@@ -41,18 +51,15 @@ class GuildEmojiRoleManager {
    * @returns {Promise<GuildEmoji>}
    */
   add(roleOrRoles) {
-    if (!Array.isArray(roleOrRoles) && !(roleOrRoles instanceof Collection)) roleOrRoles = [roleOrRoles];
+    if (roleOrRoles instanceof Collection) return this.add(roleOrRoles.keyArray());
+    if (!Array.isArray(roleOrRoles)) return this.add([roleOrRoles]);
+    roleOrRoles = roleOrRoles.map(r => this.guild.roles.resolve(r));
 
-    const resolvedRoles = [];
-    for (const role of roleOrRoles.values()) {
-      const resolvedRole = this.guild.roles.resolveID(role);
-      if (!resolvedRole) {
-        return Promise.reject(new TypeError('INVALID_ELEMENT', 'Array or Collection', 'roles', role));
-      }
-      resolvedRoles.push(resolvedRole);
+    if (roleOrRoles.includes(null)) {
+      return Promise.reject(new TypeError('INVALID_TYPE', 'roles', 'Array or Collection of Roles or Snowflakes', true));
     }
 
-    const newRoles = [...new Set(resolvedRoles.concat(...this.cache.values()))];
+    const newRoles = [...new Set(roleOrRoles.concat(...this._roles.values()))];
     return this.set(newRoles);
   }
 
@@ -62,18 +69,15 @@ class GuildEmojiRoleManager {
    * @returns {Promise<GuildEmoji>}
    */
   remove(roleOrRoles) {
-    if (!Array.isArray(roleOrRoles) && !(roleOrRoles instanceof Collection)) roleOrRoles = [roleOrRoles];
+    if (roleOrRoles instanceof Collection) return this.remove(roleOrRoles.keyArray());
+    if (!Array.isArray(roleOrRoles)) return this.remove([roleOrRoles]);
+    roleOrRoles = roleOrRoles.map(r => this.guild.roles.resolveID(r));
 
-    const resolvedRoleIDs = [];
-    for (const role of roleOrRoles.values()) {
-      const roleID = this.guild.roles.resolveID(role);
-      if (!roleID) {
-        return Promise.reject(new TypeError('INVALID_ELEMENT', 'Array or Collection', 'roles', role));
-      }
-      resolvedRoleIDs.push(roleID);
+    if (roleOrRoles.includes(null)) {
+      return Promise.reject(new TypeError('INVALID_TYPE', 'roles', 'Array or Collection of Roles or Snowflakes', true));
     }
 
-    const newRoles = this.cache.keyArray().filter(id => !resolvedRoleIDs.includes(id));
+    const newRoles = this._roles.keyArray().filter(role => !roleOrRoles.includes(role));
     return this.set(newRoles);
   }
 
@@ -98,7 +102,7 @@ class GuildEmojiRoleManager {
 
   clone() {
     const clone = new this.constructor(this.emoji);
-    clone._patch(this.cache.keyArray().slice());
+    clone._patch(this._roles.keyArray().slice());
     return clone;
   }
 

@@ -3,9 +3,9 @@
 const Integration = require('./Integration');
 const Webhook = require('./Webhook');
 const Collection = require('../util/Collection');
-const { OverwriteTypes, PartialTypes } = require('../util/Constants');
+const { PartialTypes } = require('../util/Constants');
 const Permissions = require('../util/Permissions');
-const SnowflakeUtil = require('../util/SnowflakeUtil');
+const Snowflake = require('../util/Snowflake');
 const Util = require('../util/Util');
 
 /**
@@ -319,17 +319,15 @@ class GuildAuditLogsEntry {
 
     /**
      * The user that executed this entry
-     * @type {?User}
+     * @type {User}
      */
-    this.executor = data.user_id
-      ? guild.client.options.partials.includes(PartialTypes.USER)
-        ? guild.client.users.add({ id: data.user_id })
-        : guild.client.users.cache.get(data.user_id)
-      : null;
+    this.executor = guild.client.options.partials.includes(PartialTypes.USER)
+      ? guild.client.users.add({ id: data.user_id })
+      : guild.client.users.cache.get(data.user_id);
 
     /**
      * An entry in the audit log representing a specific change.
-     * @typedef {Object} AuditLogChange
+     * @typedef {object} AuditLogChange
      * @property {string} key The property that was changed, e.g. `nick` for nickname changes
      * @property {*} [old] The old value of the change, e.g. for nicknames, the old nickname
      * @property {*} [new] The new value of the change, e.g. for nicknames, the new nickname
@@ -386,19 +384,16 @@ class GuildAuditLogsEntry {
       case Actions.CHANNEL_OVERWRITE_CREATE:
       case Actions.CHANNEL_OVERWRITE_UPDATE:
       case Actions.CHANNEL_OVERWRITE_DELETE:
-        switch (Number(data.options.type)) {
-          case OverwriteTypes.role:
+        switch (data.options.type) {
+          case 'member':
+            this.extra = guild.members.cache.get(data.options.id) || { id: data.options.id, type: 'member' };
+            break;
+
+          case 'role':
             this.extra = guild.roles.cache.get(data.options.id) || {
               id: data.options.id,
               name: data.options.role_name,
-              type: OverwriteTypes[OverwriteTypes.role],
-            };
-            break;
-
-          case OverwriteTypes.member:
-            this.extra = guild.members.cache.get(data.options.id) || {
-              id: data.options.id,
-              type: OverwriteTypes[OverwriteTypes.member],
+              type: 'role',
             };
             break;
 
@@ -491,7 +486,7 @@ class GuildAuditLogsEntry {
    * @readonly
    */
   get createdTimestamp() {
-    return SnowflakeUtil.deconstruct(this.id).timestamp;
+    return Snowflake.deconstruct(this.id).timestamp;
   }
 
   /**

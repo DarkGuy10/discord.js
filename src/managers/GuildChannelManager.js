@@ -62,8 +62,7 @@ class GuildChannelManager extends BaseManager {
    * Creates a new channel in the guild.
    * @param {string} name The name of the new channel
    * @param {Object} [options] Options
-   * @param {string} [options.type='text'] The type of the new channel, either `text`, `voice`, `category`, `news`,
-   * `store`, or `stage`
+   * @param {string} [options.type='text'] The type of the new channel, either `text`, `voice`, or `category`
    * @param {string} [options.topic] The topic for the new channel
    * @param {boolean} [options.nsfw] Whether the new channel is nsfw
    * @param {number} [options.bitrate] Bitrate of the new channel in bits (only voice)
@@ -93,8 +92,18 @@ class GuildChannelManager extends BaseManager {
    * })
    */
   async create(name, options = {}) {
-    let { type, topic, nsfw, bitrate, userLimit, parent, permissionOverwrites, position, rateLimitPerUser, reason } =
-      options;
+    let {
+      type,
+      topic,
+      nsfw,
+      bitrate,
+      userLimit,
+      parent,
+      permissionOverwrites,
+      position,
+      rateLimitPerUser,
+      reason,
+    } = options;
     if (parent) parent = this.client.channels.resolveID(parent);
     if (permissionOverwrites) {
       permissionOverwrites = permissionOverwrites.map(o => PermissionOverwrites.resolve(o, this.guild));

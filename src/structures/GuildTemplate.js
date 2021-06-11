@@ -222,10 +222,4 @@ class GuildTemplate extends Base {
   }
 }
 
-/**
- * Regular expression that globally matches guild template links
- * @type {RegExp}
- */
-GuildTemplate.GUILD_TEMPLATES_PATTERN = /discord(?:app)?\.(?:com\/template|new)\/([\w-]{2,255})/gi;
-
 module.exports = GuildTemplate;

@@ -1,7 +1,6 @@
 'use strict';
 
 const Base = require('./Base');
-const IntegrationApplication = require('./IntegrationApplication');
 const { Endpoints } = require('../util/Constants');
 const Permissions = require('../util/Permissions');
 
@@ -72,31 +71,22 @@ class Invite extends Base {
     this.inviter = data.inviter ? this.client.users.add(data.inviter) : null;
 
     /**
-     * The user whose stream to display for this voice channel stream invite
+     * The target user for this invite
      * @type {?User}
      */
     this.targetUser = data.target_user ? this.client.users.add(data.target_user) : null;
 
     /**
-     * The embedded application to open for this voice channel embedded application invite
-     * @type {?IntegrationApplication}
-     */
-    this.targetApplication = data.target_application
-      ? new IntegrationApplication(this.client, data.target_application)
-      : null;
-
-    /**
-     * The type of the invite target:
+     * The type of the target user:
      * * 1: STREAM
-     * * 2: EMBEDDED_APPLICATION
-     * @typedef {number} TargetType
+     * @typedef {number} TargetUser
      */
 
     /**
-     * The target type
-     * @type {?TargetType}
+     * The target user type
+     * @type {?TargetUser}
      */
-    this.targetType = typeof data.target_type === 'number' ? data.target_type : null;
+    this.targetUserType = typeof data.target_user_type === 'number' ? data.target_user_type : null;
 
     /**
      * The channel the invite is for
@@ -200,11 +190,5 @@ class Invite extends Base {
     return this.code;
   }
 }
-
-/**
- * Regular expression that globally matches Discord invite links
- * @type {RegExp}
- */
-Invite.INVITES_PATTERN = /discord(?:(?:app)?\.com\/invite|\.gg(?:\/invite)?)\/([\w-]{2,255})/gi;
 
 module.exports = Invite;

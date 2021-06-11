@@ -10,13 +10,14 @@ const ChannelManager = require('../managers/ChannelManager');
 const GuildManager = require('../managers/GuildManager');
 const UserManager = require('../managers/UserManager');
 const ShardClientUtil = require('../sharding/ShardClientUtil');
+const ClientApplication = require('../structures/ClientApplication');
 const GuildPreview = require('../structures/GuildPreview');
 const GuildTemplate = require('../structures/GuildTemplate');
 const Invite = require('../structures/Invite');
 const VoiceRegion = require('../structures/VoiceRegion');
 const Webhook = require('../structures/Webhook');
 const Collection = require('../util/Collection');
-const { Events, DefaultOptions, InviteScopes } = require('../util/Constants');
+const { Events, DefaultOptions } = require('../util/Constants');
 const DataResolver = require('../util/DataResolver');
 const Intents = require('../util/Intents');
 const Permissions = require('../util/Permissions');
@@ -28,9 +29,9 @@ const Structures = require('../util/Structures');
  */
 class Client extends BaseClient {
   /**
-   * @param {ClientOptions} options Options for the client
+   * @param {ClientOptions} [options] Options for the client
    */
-  constructor(options) {
+  constructor(options = {}) {
     super(options);
 
     // Obtain shard details from environment or if present, worker threads
@@ -72,7 +73,6 @@ class Client extends BaseClient {
       ];
     }
 
-    this.options.intents = Intents.ALL;
     this._validateOptions();
 
     /**
@@ -130,7 +130,7 @@ class Client extends BaseClient {
      * @private
      * @type {ClientPresence}
      */
-    this.presence = new ClientPresence(this, this.options.presence);
+    this.presence = new ClientPresence(this, options.presence);
 
     Object.defineProperty(this, 'token', { writable: true });
     if (!this.token && 'DISCORD_TOKEN' in process.env) {
@@ -150,12 +150,6 @@ class Client extends BaseClient {
      * @type {?ClientUser}
      */
     this.user = null;
-
-    /**
-     * The application of this bot
-     * @type {?ClientApplication}
-     */
-    this.application = null;
 
     /**
      * Time at which the client was last regarded as being in the `READY` state
@@ -353,6 +347,17 @@ class Client extends BaseClient {
   }
 
   /**
+   * Obtains the OAuth Application of this bot from Discord.
+   * @returns {Promise<ClientApplication>}
+   */
+  fetchApplication() {
+    return this.api.oauth2
+      .applications('@me')
+      .get()
+      .then(app => new ClientApplication(this, app));
+  }
+
+  /**
    * Obtains a guild preview from Discord, available for all guilds the bot is in and all Discoverable guilds.
    * @param {GuildResolvable} guild The guild to fetch the preview for
    * @returns {Promise<GuildPreview>}
@@ -372,29 +377,29 @@ class Client extends BaseClient {
    * @property {PermissionResolvable} [permissions] Permissions to request
    * @property {GuildResolvable} [guild] Guild to preselect
    * @property {boolean} [disableGuildSelect] Whether to disable the guild selection
-   * @property {InviteScope[]} [additionalScopes] Whether any additional scopes should be requested
    */
 
   /**
    * Generates a link that can be used to invite the bot to a guild.
    * @param {InviteGenerationOptions} [options={}] Options for the invite
-   * @returns {string}
+   * @returns {Promise<string>}
    * @example
-   * const link = client.generateInvite({
+   * client.generateInvite({
    *   permissions: [
    *     Permissions.FLAGS.SEND_MESSAGES,
    *     Permissions.FLAGS.MANAGE_GUILD,
    *     Permissions.FLAGS.MENTION_EVERYONE,
    *   ],
-   * });
-   * console.log(`Generated bot invite link: ${link}`);
+   * })
+   *   .then(link => console.log(`Generated bot invite link: ${link}`))
+   *   .catch(console.error);
    */
-  generateInvite(options = {}) {
+  async generateInvite(options = {}) {
     if (typeof options !== 'object') throw new TypeError('INVALID_TYPE', 'options', 'object', true);
-    if (!this.application) throw new Error('CLIENT_NOT_READY', 'generate an invite link');
 
+    const application = await this.fetchApplication();
     const query = new URLSearchParams({
-      client_id: this.application.id,
+      client_id: application.id,
       scope: 'bot',
     });
 
@@ -411,18 +416,6 @@ class Client extends BaseClient {
       const guildID = this.guilds.resolveID(options.guild);
       if (!guildID) throw new TypeError('INVALID_TYPE', 'options.guild', 'GuildResolvable');
       query.set('guild_id', guildID);
-    }
-
-    if (options.additionalScopes) {
-      const scopes = options.additionalScopes;
-      if (!Array.isArray(scopes)) {
-        throw new TypeError('INVALID_TYPE', 'additionalScopes', 'Array of Invite Scopes', true);
-      }
-      const invalidScope = scopes.find(scope => !InviteScopes.includes(scope));
-      if (invalidScope) {
-        throw new TypeError('INVALID_ELEMENT', 'Array', 'additionalScopes', invalidScope);
-      }
-      query.set('scope', ['bot', ...scopes].join(' '));
     }
 
     return `${this.options.http.api}${this.api.oauth2.authorize}?${query}`;
@@ -451,6 +444,9 @@ class Client extends BaseClient {
    * @private
    */
   _validateOptions(options = this.options) {
+    if (typeof options.ws.intents !== 'undefined') {
+      options.ws.intents = Intents.resolve(options.ws.intents);
+    }
     if (typeof options.shardCount !== 'number' || isNaN(options.shardCount) || options.shardCount < 1) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'shardCount', 'a number greater than or equal to 1');
     }
@@ -467,9 +463,6 @@ class Client extends BaseClient {
     if (typeof options.messageSweepInterval !== 'number' || isNaN(options.messageSweepInterval)) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'messageSweepInterval', 'a number');
     }
-    if (typeof options.invalidRequestWarningInterval !== 'number' || isNaN(options.invalidRequestWarningInterval)) {
-      throw new TypeError('CLIENT_INVALID_OPTION', 'invalidRequestWarningInterval', 'a number');
-    }
     if (!Array.isArray(options.partials)) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'partials', 'an Array');
     }
@@ -478,9 +471,6 @@ class Client extends BaseClient {
     }
     if (typeof options.restRequestTimeout !== 'number' || isNaN(options.restRequestTimeout)) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'restRequestTimeout', 'a number');
-    }
-    if (typeof options.restGlobalRateLimit !== 'number' || isNaN(options.restGlobalRateLimit)) {
-      throw new TypeError('CLIENT_INVALID_OPTION', 'restGlobalRateLimit', 'a number');
     }
     if (typeof options.restSweepInterval !== 'number' || isNaN(options.restSweepInterval)) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'restSweepInterval', 'a number');

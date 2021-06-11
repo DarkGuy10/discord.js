@@ -5,7 +5,7 @@
  * @extends Error
  */
 class DiscordAPIError extends Error {
-  constructor(error, status, request) {
+  constructor(path, error, method, status) {
     super();
     const flattened = this.constructor.flattenErrors(error.errors || error).join('\n');
     this.name = 'DiscordAPIError';
@@ -15,13 +15,13 @@ class DiscordAPIError extends Error {
      * The HTTP method used for the request
      * @type {string}
      */
-    this.method = request.method;
+    this.method = method;
 
     /**
      * The path of the request relative to the HTTP endpoint
      * @type {string}
      */
-    this.path = request.path;
+    this.path = path;
 
     /**
      * HTTP error code returned by Discord
@@ -34,15 +34,6 @@ class DiscordAPIError extends Error {
      * @type {number}
      */
     this.httpStatus = status;
-
-    /**
-     * The data associated with the request that caused this error
-     * @type {HTTPErrorData}
-     */
-    this.requestData = {
-      json: request.options.data,
-      files: request.options.files ?? [],
-    };
   }
 
   /**

@@ -5,11 +5,11 @@
 const request = require('superagent');
 const ytdl = require('ytdl-core');
 const { token, song } = require('./auth.js');
-const { Client, Intents } = require('../src');
+const Discord = require('../src');
 
 console.time('magic');
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS, Intents.FLAGS.GUILD_MEMBERS] });
+const client = new Discord.Client();
 
 client
   .login(token)

@@ -2,12 +2,10 @@
 
 const BaseManager = require('./BaseManager');
 const { Error, TypeError, RangeError } = require('../errors');
-const BaseGuildVoiceChannel = require('../structures/BaseGuildVoiceChannel');
 const GuildMember = require('../structures/GuildMember');
-const Role = require('../structures/Role');
 const Collection = require('../util/Collection');
 const { Events, OPCodes } = require('../util/Constants');
-const SnowflakeUtil = require('../util/SnowflakeUtil');
+const SnowflakeUtil = require('../util/Snowflake');
 
 /**
  * Manages API methods for GuildMembers and stores their cache.
@@ -139,60 +137,6 @@ class GuildMemberManager extends BaseManager {
   }
 
   /**
-   * Search for members in the guild based on a query.
-   * @param {Object} options Search options
-   * @property {string} options.query Filter members whose username or nickname start with this query
-   * @property {number} [options.limit=1] Maximum number of members to search
-   * @property {boolean} [options.cache=true] Whether or not to cache the fetched member(s)
-   * @returns {Promise<Collection<Snowflake, GuildMember>>}
-   */
-  async search({ query, limit = 1, cache = true } = {}) {
-    const data = await this.client.api.guilds(this.guild.id).members.search.get({ query: { query, limit } });
-    return data.reduce((col, member) => col.set(member.user.id, this.add(member, cache)), new Collection());
-  }
-
-  /**
-   * Edits a member of the guild.
-   * <info>The user must be a member of the guild</info>
-   * @param {UserResolvable} user The member to edit
-   * @param {GuildMemberEditData} data The data to edit the member with
-   * @param {string} [reason] Reason for editing this user
-   * @returns {Promise<GuildMember>}
-   */
-  async edit(user, data, reason) {
-    const id = this.client.users.resolveID(user);
-    if (!id) throw new TypeError('INVALID_TYPE', 'user', 'UserResolvable');
-
-    // Clone the data object for immutability
-    const _data = { ...data };
-    if (_data.channel) {
-      _data.channel = this.guild.channels.resolve(_data.channel);
-      if (!(_data.channel instanceof BaseGuildVoiceChannel)) {
-        throw new Error('GUILD_VOICE_CHANNEL_RESOLVE');
-      }
-      _data.channel_id = _data.channel.id;
-      _data.channel = undefined;
-    } else if (_data.channel === null) {
-      _data.channel_id = null;
-      _data.channel = undefined;
-    }
-    if (_data.roles) _data.roles = _data.roles.map(role => (role instanceof Role ? role.id : role));
-    let endpoint = this.client.api.guilds(this.guild.id);
-    if (id === this.client.user.id) {
-      const keys = Object.keys(_data);
-      if (keys.length === 1 && keys[0] === 'nick') endpoint = endpoint.members('@me').nick;
-      else endpoint = endpoint.members(id);
-    } else {
-      endpoint = endpoint.members(id);
-    }
-    const d = await endpoint.patch({ data: _data, reason });
-
-    const clone = this.cache.get(id)?._clone();
-    clone?._patch(d);
-    return clone ?? this.add(d, false);
-  }
-
-  /**
    * Prunes members from the guild based on how long they have been inactive.
    * <info>It's recommended to set options.count to `false` for large guilds.</info>
    * @param {Object} [options] Prune options
@@ -219,7 +163,7 @@ class GuildMemberManager extends BaseManager {
    *    .catch(console.error);
    */
   prune({ days = 7, dry = false, count: compute_prune_count = true, roles = [], reason } = {}) {
-    if (typeof days !== 'number') return Promise.reject(new TypeError('PRUNE_DAYS_TYPE'));
+    if (typeof days !== 'number') throw new TypeError('PRUNE_DAYS_TYPE');
 
     const query = { days };
     const resolvedRoles = [];
@@ -227,7 +171,7 @@ class GuildMemberManager extends BaseManager {
     for (const role of roles) {
       const resolvedRole = this.guild.roles.resolveID(role);
       if (!resolvedRole) {
-        return Promise.reject(new TypeError('INVALID_ELEMENT', 'Array', 'options.roles', role));
+        return Promise.reject(new TypeError('INVALID_TYPE', 'roles', 'Array of Roles or Snowflakes', true));
       }
       resolvedRoles.push(resolvedRole);
     }
@@ -251,46 +195,37 @@ class GuildMemberManager extends BaseManager {
   }
 
   /**
-   * Kicks a user from the guild.
-   * <info>The user must be a member of the guild</info>
-   * @param {UserResolvable} user The member to kick
-   * @param {string} [reason] Reason for kicking
-   * @returns {Promise<GuildMember|User|Snowflake>} Result object will be resolved as specifically as possible.
-   * If the GuildMember cannot be resolved, the User will instead be attempted to be resolved. If that also cannot
-   * be resolved, the user ID will be the result.
-   * @example
-   * // Kick a user by ID (or with a user/guild member object)
-   * guild.members.kick('84484653687267328')
-   *   .then(user => console.log(`Kicked ${user.username || user.id || user} from ${guild.name}`))
-   *   .catch(console.error);
-   */
-  async kick(user, reason) {
-    const id = this.client.users.resolveID(user);
-    if (!id) return Promise.reject(new TypeError('INVALID_TYPE', 'user', 'UserResolvable'));
-
-    await this.client.api.guilds(this.guild.id).members(id).delete({ reason });
-
-    return this.resolve(user) ?? this.client.users.resolve(user) ?? id;
-  }
-
-  /**
    * Bans a user from the guild.
    * @param {UserResolvable} user The user to ban
    * @param {Object} [options] Options for the ban
-   * @param {number} [options.days=0] Number of days of messages to delete, must be between 0 and 7, inclusive
+   * @param {number} [options.days=0] Number of days of messages to delete, must be between 0 and 7
    * @param {string} [options.reason] Reason for banning
    * @returns {Promise<GuildMember|User|Snowflake>} Result object will be resolved as specifically as possible.
    * If the GuildMember cannot be resolved, the User will instead be attempted to be resolved. If that also cannot
    * be resolved, the user ID will be the result.
-   * Internally calls the GuildBanManager#create method.
    * @example
    * // Ban a user by ID (or with a user/guild member object)
    * guild.members.ban('84484653687267328')
-   *   .then(user => console.log(`Banned ${user.username ?? user.id ?? user} from ${guild.name}`))
+   *   .then(user => console.log(`Banned ${user.username || user.id || user} from ${guild.name}`))
    *   .catch(console.error);
    */
   ban(user, options = { days: 0 }) {
-    return this.guild.bans.create(user, options);
+    if (typeof options !== 'object') return Promise.reject(new TypeError('INVALID_TYPE', 'options', 'object', true));
+    if (options.days) options.delete_message_days = options.days;
+    const id = this.client.users.resolveID(user);
+    if (!id) return Promise.reject(new Error('BAN_RESOLVE_ID', true));
+    return this.client.api
+      .guilds(this.guild.id)
+      .bans[id].put({ data: options })
+      .then(() => {
+        if (user instanceof GuildMember) return user;
+        const _user = this.client.users.resolve(id);
+        if (_user) {
+          const member = this.resolve(_user);
+          return member || _user;
+        }
+        return id;
+      });
   }
 
   /**
@@ -298,7 +233,6 @@ class GuildMemberManager extends BaseManager {
    * @param {UserResolvable} user The user to unban
    * @param {string} [reason] Reason for unbanning user
    * @returns {Promise<User>}
-   * Internally calls the GuildBanManager#remove method.
    * @example
    * // Unban a user by ID (or with a user/guild member object)
    * guild.members.unban('84484653687267328')
@@ -306,7 +240,12 @@ class GuildMemberManager extends BaseManager {
    *   .catch(console.error);
    */
   unban(user, reason) {
-    return this.guild.bans.remove(user, reason);
+    const id = this.client.users.resolveID(user);
+    if (!id) return Promise.reject(new Error('BAN_RESOLVE_ID'));
+    return this.client.api
+      .guilds(this.guild.id)
+      .bans[id].delete({ reason })
+      .then(() => this.client.users.resolve(user));
   }
 
   _fetchSingle({ user, cache, force = false }) {

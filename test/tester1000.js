@@ -1,15 +1,13 @@
 'use strict';
 
 const { token, prefix, owner } = require('./auth.js');
-const { Client, Intents } = require('../src');
+const Discord = require('../src');
 
 // eslint-disable-next-line no-console
 const log = (...args) => console.log(process.uptime().toFixed(3), ...args);
 
-const client = new Client({
-  intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
+const client = new Discord.Client({
   shardCount: 2,
-  intents: Discord.Intents.NON_PRIVILEGED,
 });
 
 client.on('debug', log);

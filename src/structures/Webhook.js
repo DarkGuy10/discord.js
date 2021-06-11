@@ -4,7 +4,7 @@ const APIMessage = require('./APIMessage');
 const Channel = require('./Channel');
 const { WebhookTypes } = require('../util/Constants');
 const DataResolver = require('../util/DataResolver');
-const SnowflakeUtil = require('../util/SnowflakeUtil');
+const Snowflake = require('../util/Snowflake');
 
 /**
  * Represents a webhook.
@@ -65,47 +65,36 @@ class Webhook {
      */
     this.channelID = data.channel_id;
 
-    /**
-     * The owner of the webhook
-     * @type {?User|Object}
-     */
-    this.owner = data.user ? this.client.users?.add(data.user) ?? data.user : null;
-
-    /**
-     * The source guild of the webhook
-     * @type {?Guild|Object}
-     */
-    this.sourceGuild = data.source_guild
-      ? this.client.guilds?.add(data.source_guild, false) ?? data.source_guild
-      : null;
-
-    /**
-     * The source channel of the webhook
-     * @type {?Channel|Object}
-     */
-    this.sourceChannel = this.client.channels?.resolve(data.source_channel?.id) ?? data.source_channel ?? null;
+    if (data.user) {
+      /**
+       * The owner of the webhook
+       * @type {?User|Object}
+       */
+      this.owner = this.client.users ? this.client.users.cache.get(data.user.id) : data.user;
+    } else {
+      this.owner = null;
+    }
   }
 
   /**
    * Options that can be passed into send.
-   * @typedef {BaseMessageOptions} WebhookMessageOptions
+   * @typedef {Object} WebhookMessageOptions
    * @property {string} [username=this.name] Username override for the message
    * @property {string} [avatarURL] Avatar URL override for the message
-   * @property {MessageEmbed[]|Object[]} [embeds] An array of embeds for the message
-   */
-
-  /**
-   * Options that can be passed into editMessage.
-   * @typedef {Object} WebhookEditMessageOptions
-   * @property {MessageEmbed[]|Object[]} [embeds] See {@link WebhookMessageOptions#embeds}
-   * @property {string} [content] See {@link BaseMessageOptions#content}
-   * @property {FileOptions[]|BufferResolvable[]|MessageAttachment[]} [files] See {@link BaseMessageOptions#files}
-   * @property {MessageMentionOptions} [allowedMentions] See {@link BaseMessageOptions#allowedMentions}
+   * @property {boolean} [tts=false] Whether or not the message should be spoken aloud
+   * @property {string} [nonce=''] The nonce for the message
+   * @property {Object[]} [embeds] An array of embeds for the message
+   * @property {MessageMentionOptions} [allowedMentions] Which mentions should be parsed from the message content
+   * (see [here](https://discord.com/developers/docs/resources/channel#embed-object) for more details)
+   * @property {FileOptions[]|string[]} [files] Files to send with the message
+   * @property {string|boolean} [code] Language for optional codeblock formatting to apply
+   * @property {boolean|SplitOptions} [split=false] Whether or not the message should be split into multiple messages if
+   * it exceeds the character limit. If an object is provided, these are the options for splitting the message.
    */
 
   /**
    * Sends a message with this webhook.
-   * @param {string|APIMessage} [content=''] The content to send
+   * @param {StringResolvable|APIMessage} [content=''] The content to send
    * @param {WebhookMessageOptions|MessageAdditions} [options={}] The options to provide
    * @returns {Promise<Message|Object>}
    * @example
@@ -228,46 +217,6 @@ class Webhook {
   }
 
   /**
-   * Gets a message that was sent by this webhook.
-   * @param {Snowflake|'@original'} message The ID of the message to fetch
-   * @param {boolean} [cache=true] Whether to cache the message
-   * @returns {Promise<Message|Object>} Returns the raw message data if the webhook was instantiated as a
-   * {@link WebhookClient} or if the channel is uncached, otherwise a {@link Message} will be returned
-   */
-  async fetchMessage(message, cache = true) {
-    const data = await this.client.api.webhooks(this.id, this.token).messages(message).get();
-    return this.client.channels?.cache.get(data.channel_id)?.messages.add(data, cache) ?? data;
-  }
-
-  /**
-   * Edits a message that was sent by this webhook.
-   * @param {MessageResolvable|'@original'} message The message to edit
-   * @param {?(string|APIMessage)} [content] The new content for the message
-   * @param {WebhookEditMessageOptions|MessageAdditions} [options] The options to provide
-   * @returns {Promise<Message|Object>} Returns the raw message data if the webhook was instantiated as a
-   * {@link WebhookClient} or if the channel is uncached, otherwise a {@link Message} will be returned
-   */
-  async editMessage(message, content, options) {
-    const { data, files } = await (
-      content?.resolveData?.() ?? APIMessage.create(this, content, options).resolveData()
-    ).resolveFiles();
-    const d = await this.client.api
-      .webhooks(this.id, this.token)
-      .messages(typeof message === 'string' ? message : message.id)
-      .patch({ data, files });
-
-    const messageManager = this.client.channels?.cache.get(d.channel_id)?.messages;
-    if (!messageManager) return d;
-
-    const existing = messageManager.cache.get(d.id);
-    if (!existing) return messageManager.add(d);
-
-    const clone = existing._clone();
-    clone._patch(d);
-    return clone;
-  }
-
-  /**
    * Deletes the webhook.
    * @param {string} [reason] Reason for deleting this webhook
    * @returns {Promise}
@@ -275,26 +224,13 @@ class Webhook {
   delete(reason) {
     return this.client.api.webhooks(this.id, this.token).delete({ reason });
   }
-
-  /**
-   * Delete a message that was sent by this webhook.
-   * @param {MessageResolvable|'@original'} message The message to delete
-   * @returns {Promise<void>}
-   */
-  async deleteMessage(message) {
-    await this.client.api
-      .webhooks(this.id, this.token)
-      .messages(typeof message === 'string' ? message : message.id)
-      .delete();
-  }
-
   /**
    * The timestamp the webhook was created at
    * @type {number}
    * @readonly
    */
   get createdTimestamp() {
-    return SnowflakeUtil.deconstruct(this.id).timestamp;
+    return Snowflake.deconstruct(this.id).timestamp;
   }
 
   /**
@@ -325,20 +261,8 @@ class Webhook {
     return this.client.rest.cdn.Avatar(this.id, this.avatar, format, size);
   }
 
-  static applyToClass(structure, ignore = []) {
-    for (const prop of [
-      'send',
-      'sendSlackMessage',
-      'fetchMessage',
-      'edit',
-      'editMessage',
-      'delete',
-      'deleteMessage',
-      'createdTimestamp',
-      'createdAt',
-      'url',
-    ]) {
-      if (ignore.includes(prop)) continue;
+  static applyToClass(structure) {
+    for (const prop of ['send', 'sendSlackMessage', 'edit', 'delete', 'createdTimestamp', 'createdAt', 'url']) {
       Object.defineProperty(structure.prototype, prop, Object.getOwnPropertyDescriptor(Webhook.prototype, prop));
     }
   }

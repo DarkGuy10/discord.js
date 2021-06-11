@@ -1,7 +1,7 @@
 'use strict';
 
 const Base = require('./Base');
-const SnowflakeUtil = require('../util/SnowflakeUtil');
+const Snowflake = require('../util/Snowflake');
 
 /**
  * Represents an emoji, see {@link GuildEmoji} and {@link ReactionEmoji}.
@@ -18,9 +18,9 @@ class Emoji extends Base {
 
     /**
      * The name of this emoji
-     * @type {?string}
+     * @type {string}
      */
-    this.name = emoji.name ?? null;
+    this.name = emoji.name;
 
     /**
      * The ID of this emoji
@@ -62,7 +62,7 @@ class Emoji extends Base {
    */
   get createdTimestamp() {
     if (!this.id) return null;
-    return SnowflakeUtil.deconstruct(this.id).timestamp;
+    return Snowflake.deconstruct(this.id).timestamp;
   }
 
   /**

@@ -6,9 +6,7 @@ const GuildChannel = require('../structures/GuildChannel');
 const GuildEmoji = require('../structures/GuildEmoji');
 const GuildMember = require('../structures/GuildMember');
 const Invite = require('../structures/Invite');
-const OAuth2Guild = require('../structures/OAuth2Guild');
 const Role = require('../structures/Role');
-const Collection = require('../util/Collection');
 const {
   ChannelTypes,
   Events,
@@ -18,7 +16,6 @@ const {
 } = require('../util/Constants');
 const DataResolver = require('../util/DataResolver');
 const Permissions = require('../util/Permissions');
-const SystemChannelFlags = require('../util/SystemChannelFlags');
 const { resolveColor } = require('../util/Util');
 
 /**
@@ -56,7 +53,7 @@ class GuildManager extends BaseManager {
    * @property {ColorResolvable} [color] The color of the role, either a hex string or a base 10 number
    * @property {boolean} [hoist] Whether or not the role should be hoisted
    * @property {number} [position] The position of the role
-   * @property {PermissionResolvable} [permissions] The permissions of the role
+   * @property {PermissionResolvable|number} [permissions] The permissions of the role
    * @property {boolean} [mentionable] Whether or not the role should be mentionable
    */
 
@@ -144,7 +141,6 @@ class GuildManager extends BaseManager {
    * @param {PartialRoleData[]} [options.roles] The roles for this guild,
    * the first element of this array is used to change properties of the guild's everyone role.
    * @param {number} [options.systemChannelID] The ID of the system channel
-   * @param {SystemChannelFlagsResolvable} [options.systemChannelFlags] The flags of the system channel
    * @param {VerificationLevel} [options.verificationLevel] The verification level for the guild
    * @returns {Promise<Guild>} The guild that was created
    */
@@ -160,7 +156,6 @@ class GuildManager extends BaseManager {
       region,
       roles = [],
       systemChannelID,
-      systemChannelFlags,
       verificationLevel,
     } = {},
   ) {
@@ -180,15 +175,15 @@ class GuildManager extends BaseManager {
       delete channel.parentID;
       if (!channel.permissionOverwrites) continue;
       for (const overwrite of channel.permissionOverwrites) {
-        if (overwrite.allow) overwrite.allow = Permissions.resolve(overwrite.allow).toString();
-        if (overwrite.deny) overwrite.deny = Permissions.resolve(overwrite.deny).toString();
+        if (overwrite.allow) overwrite.allow = Permissions.resolve(overwrite.allow);
+        if (overwrite.deny) overwrite.deny = Permissions.resolve(overwrite.deny);
       }
       channel.permission_overwrites = channel.permissionOverwrites;
       delete channel.permissionOverwrites;
     }
     for (const role of roles) {
       if (role.color) role.color = resolveColor(role.color);
-      if (role.permissions) role.permissions = Permissions.resolve(role.permissions).toString();
+      if (role.permissions) role.permissions = Permissions.resolve(role.permissions);
     }
     return new Promise((resolve, reject) =>
       this.client.api.guilds
@@ -205,7 +200,6 @@ class GuildManager extends BaseManager {
             afk_channel_id: afkChannelID,
             afk_timeout: afkTimeout,
             system_channel_id: systemChannelID,
-            system_channel_flags: SystemChannelFlags.resolve(systemChannelFlags),
           },
         })
         .then(data => {
@@ -233,41 +227,25 @@ class GuildManager extends BaseManager {
   }
 
   /**
-   * Options used to fetch a single guild.
-   * @typedef {Object} FetchGuildOptions
-   * @property {GuildResolvable} guild The guild to fetch
-   * @property {boolean} [cache=true] Whether or not to cache the fetched guild
-   * @property {boolean} [force=false] Whether to skip the cache check and request the API
+   * Obtains a guild from Discord, or the guild cache if it's already available.
+   * @param {Snowflake} id ID of the guild
+   * @param {boolean} [cache=true] Whether to cache the new guild object if it isn't already
+   * @param {boolean} [force=false] Whether to skip the cache check and request the API
+   * @returns {Promise<Guild>}
+   * @example
+   * // Fetch a guild by its id
+   * client.guilds.fetch('222078108977594368')
+   *   .then(guild => console.log(guild.name))
+   *   .catch(console.error);
    */
-
-  /**
-   * Options used to fetch multiple guilds.
-   * @typedef {Object} FetchGuildsOptions
-   * @property {Snowflake} [before] Get guilds before this guild ID
-   * @property {Snowflake} [after] Get guilds after this guild ID
-   * @property {number} [limit=100] Maximum number of guilds to request (1-100)
-   */
-
-  /**
-   * Obtains one or multiple guilds from Discord, or the guild cache if it's already available.
-   * @param {GuildResolvable|FetchGuildOptions|FetchGuildsOptions} [options] ID of the guild or options
-   * @returns {Promise<Guild|Collection<Snowflake, OAuth2Guild>>}
-   */
-  async fetch(options = {}) {
-    const id = this.resolveID(options) ?? this.resolveID(options.guild);
-
-    if (id) {
-      if (!options.force) {
-        const existing = this.cache.get(id);
-        if (existing) return existing;
-      }
-
-      const data = await this.client.api.guilds(id).get({ query: { with_counts: true } });
-      return this.add(data, options.cache);
+  async fetch(id, cache = true, force = false) {
+    if (!force) {
+      const existing = this.cache.get(id);
+      if (existing) return existing;
     }
 
-    const data = await this.client.api.users('@me').guilds.get({ query: options });
-    return data.reduce((coll, guild) => coll.set(guild.id, new OAuth2Guild(this.client, guild)), new Collection());
+    const data = await this.client.api.guilds(id).get({ query: { with_counts: true } });
+    return this.add(data, cache);
   }
 }
 

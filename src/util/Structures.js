@@ -9,7 +9,6 @@
  * * **`CategoryChannel`**
  * * **`NewsChannel`**
  * * **`StoreChannel`**
- * * **`StageChannel`**
  * * **`GuildMember`**
  * * **`Guild`**
  * * **`Message`**
@@ -19,8 +18,6 @@
  * * **`VoiceState`**
  * * **`Role`**
  * * **`User`**
- * * **`CommandInteraction`**
- * * **`MessageComponentInteraction`**
  * @typedef {string} ExtendableStructure
  */
 
@@ -101,7 +98,6 @@ const structures = {
   CategoryChannel: require('../structures/CategoryChannel'),
   NewsChannel: require('../structures/NewsChannel'),
   StoreChannel: require('../structures/StoreChannel'),
-  StageChannel: require('../structures/StageChannel'),
   GuildMember: require('../structures/GuildMember'),
   Guild: require('../structures/Guild'),
   Message: require('../structures/Message'),
@@ -111,8 +107,6 @@ const structures = {
   VoiceState: require('../structures/VoiceState'),
   Role: require('../structures/Role'),
   User: require('../structures/User'),
-  CommandInteraction: require('../structures/CommandInteraction'),
-  MessageComponentInteraction: require('../structures/MessageComponentInteraction'),
 };
 
 module.exports = Structures;

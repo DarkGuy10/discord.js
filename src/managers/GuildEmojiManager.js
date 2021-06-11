@@ -49,14 +49,15 @@ class GuildEmojiManager extends BaseGuildEmojiManager {
 
     const data = { image: attachment, name };
     if (roles) {
-      if (!Array.isArray(roles) && !(roles instanceof Collection)) {
-        throw new TypeError('INVALID_TYPE', 'options.roles', 'Array or Collection of Roles or Snowflakes', true);
-      }
       data.roles = [];
-      for (const role of roles.values()) {
-        const resolvedRole = this.guild.roles.resolveID(role);
-        if (!resolvedRole) throw new TypeError('INVALID_ELEMENT', 'Array or Collection', 'options.roles', role);
-        data.roles.push(resolvedRole);
+      for (let role of roles instanceof Collection ? roles.values() : roles) {
+        role = this.guild.roles.resolve(role);
+        if (!role) {
+          return Promise.reject(
+            new TypeError('INVALID_TYPE', 'options.roles', 'Array or Collection of Roles or Snowflakes', true),
+          );
+        }
+        data.roles.push(role.id);
       }
     }
 

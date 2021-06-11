@@ -3,12 +3,9 @@
 
 const ytdl = require('ytdl-core');
 const auth = require('./auth.js');
-const { Client, Intents } = require('../src');
+const Discord = require('../src');
 
-const client = new Client({
-  intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_PRESENCES],
-  partials: [],
-});
+const client = new Discord.Client({ partials: [] });
 
 client
   .login(auth.token)
@@ -58,7 +55,7 @@ client.on('message', m => {
       m.channel.send(com, { code: true });
     } catch (e) {
       console.log(e);
-      m.channel.send(String(e), { code: true });
+      m.channel.send(e, { code: true });
     }
   }
 });

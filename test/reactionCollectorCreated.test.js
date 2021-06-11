@@ -1,11 +1,9 @@
 'use strict';
 
 const { token, guildId, channelId, messageId } = require('./auth.js');
-const { Client, Intents, ReactionCollector } = require('../src');
+const { Client, ReactionCollector } = require('../src');
 
-const client = new Client({
-  intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS],
-});
+const client = new Client();
 
 client.on('ready', async () => {
   const guild = client.guilds.cache.get(guildId);

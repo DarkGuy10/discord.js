@@ -1,7 +1,7 @@
 'use strict';
 
 const { ClientApplicationAssetTypes, Endpoints } = require('../../util/Constants');
-const SnowflakeUtil = require('../../util/SnowflakeUtil');
+const Snowflake = require('../../util/Snowflake');
 const Base = require('../Base');
 
 const AssetTypes = Object.keys(ClientApplicationAssetTypes);
@@ -17,7 +17,6 @@ class Application extends Base {
   }
 
   _patch(data) {
-    if(!data?.id) return;
     /**
      * The ID of the app
      * @type {Snowflake}
@@ -26,21 +25,21 @@ class Application extends Base {
 
     /**
      * The name of the app
-     * @type {?string}
+     * @type {string}
      */
-    this.name = data.name ?? this.name ?? null;
+    this.name = data.name;
 
     /**
      * The app's description
-     * @type {?string}
+     * @type {string}
      */
-    this.description = data.description ?? this.description ?? null;
+    this.description = data.description;
 
     /**
      * The app's icon hash
-     * @type {?string}
+     * @type {string}
      */
-    this.icon = data.icon ?? this.icon ?? null;
+    this.icon = data.icon;
   }
 
   /**
@@ -49,7 +48,7 @@ class Application extends Base {
    * @readonly
    */
   get createdTimestamp() {
-    return SnowflakeUtil.deconstruct(this.id).timestamp;
+    return Snowflake.deconstruct(this.id).timestamp;
   }
 
   /**
@@ -76,7 +75,7 @@ class Application extends Base {
    * @param {ImageURLOptions} [options={}] Options for the Image URL
    * @returns {?string} URL to the cover image
    */
-  coverURL({ format, size } = {}) {
+  coverImage({ format, size } = {}) {
     if (!this.cover) return null;
     return Endpoints.CDN(this.client.options.http.cdn).AppIcon(this.id, this.cover, { format, size });
   }
@@ -109,7 +108,7 @@ class Application extends Base {
   /**
    * When concatenated with a string, this automatically returns the application's name instead of the
    * Oauth2Application object.
-   * @returns {?string}
+   * @returns {string}
    * @example
    * // Logs: Application name: My App
    * console.log(`Application name: ${application}`);

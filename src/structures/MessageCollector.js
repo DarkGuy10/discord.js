@@ -90,7 +90,12 @@ class MessageCollector extends Collector {
     return message.channel.id === this.channel.id ? message.id : null;
   }
 
-  get endReason() {
+  /**
+   * Checks after un/collection to see if the collector is done.
+   * @returns {?string}
+   * @private
+   */
+  endReason() {
     if (this.options.max && this.collected.size >= this.options.max) return 'limit';
     if (this.options.maxProcessed && this.received === this.options.maxProcessed) return 'processedLimit';
     return null;

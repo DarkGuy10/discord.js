@@ -57,12 +57,12 @@ class Util {
 
   /**
    * Splits a string into multiple chunks at a designated character that do not exceed a specific length.
-   * @param {string} text Content to split
+   * @param {StringResolvable} text Content to split
    * @param {SplitOptions} [options] Options controlling the behavior of the split
    * @returns {string[]}
    */
   static splitMessage(text, { maxLength = 2000, char = '\n', prepend = '', append = '' } = {}) {
-    text = Util.verifyString(text, RangeError, 'MESSAGE_CONTENT_TYPE', false);
+    text = Util.resolveString(text);
     if (text.length <= maxLength) return [text];
     const splitText = text.split(char);
     if (splitText.some(chunk => chunk.length > maxLength)) throw new RangeError('SPLIT_MAX_LEN');
@@ -347,22 +347,22 @@ class Util {
   }
 
   /**
-   * Verifies the provided data is a string, otherwise throws provided error.
-   * @param {string} data The string resolvable to resolve
-   * @param {Function} [error] The Error constructor to instantiate. Defaults to Error
-   * @param {string} [errorMessage] The error message to throw with. Defaults to "Expected string, got <data> instead."
-   * @param {boolean} [allowEmpty=true] Whether an empty string should be allowed
+   * Data that can be resolved to give a string. This can be:
+   * * A string
+   * * An array (joined with a new line delimiter to give a string)
+   * * Any value
+   * @typedef {string|Array|*} StringResolvable
+   */
+
+  /**
+   * Resolves a StringResolvable to a string.
+   * @param {StringResolvable} data The string resolvable to resolve
    * @returns {string}
    */
-  static verifyString(
-    data,
-    error = Error,
-    errorMessage = `Expected a string, got ${data} instead.`,
-    allowEmpty = true,
-  ) {
-    if (typeof data !== 'string') throw new error(errorMessage);
-    if (!allowEmpty && data.length === 0) throw new error(errorMessage);
-    return data;
+  static resolveString(data) {
+    if (typeof data === 'string') return data;
+    if (Array.isArray(data)) return data.join('\n');
+    return String(data);
   }
 
   /**
@@ -379,11 +379,11 @@ class Util {
    * - `YELLOW`
    * - `PURPLE`
    * - `LUMINOUS_VIVID_PINK`
-   * - `FUCHSIA`
    * - `GOLD`
    * - `ORANGE`
    * - `RED`
    * - `GREY`
+   * - `DARKER_GREY`
    * - `NAVY`
    * - `DARK_AQUA`
    * - `DARK_GREEN`
@@ -394,7 +394,6 @@ class Util {
    * - `DARK_ORANGE`
    * - `DARK_RED`
    * - `DARK_GREY`
-   * - `DARKER_GREY`
    * - `LIGHT_GREY`
    * - `DARK_NAVY`
    * - `BLURPLE`
@@ -532,33 +531,33 @@ class Util {
   /**
    * The content to have all mentions replaced by the equivalent text.
    * @param {string} str The string to be converted
-   * @param {Channel} channel The channel the string was sent in
+   * @param {Message} message The message object to reference
    * @returns {string}
    */
-  static cleanContent(str, channel) {
+  static cleanContent(str, message) {
     str = str
       .replace(/<@!?[0-9]+>/g, input => {
         const id = input.replace(/<|!|>|@/g, '');
-        if (channel.type === 'dm') {
-          const user = channel.client.users.cache.get(id);
+        if (message.channel.type === 'dm') {
+          const user = message.client.users.cache.get(id);
           return user ? Util.removeMentions(`@${user.username}`) : input;
         }
 
-        const member = channel.guild.members.cache.get(id);
+        const member = message.channel.guild.members.cache.get(id);
         if (member) {
           return Util.removeMentions(`@${member.displayName}`);
         } else {
-          const user = channel.client.users.cache.get(id);
+          const user = message.client.users.cache.get(id);
           return user ? Util.removeMentions(`@${user.username}`) : input;
         }
       })
       .replace(/<#[0-9]+>/g, input => {
-        const mentionedChannel = channel.client.channels.cache.get(input.replace(/<|#|>/g, ''));
-        return mentionedChannel ? `#${mentionedChannel.name}` : input;
+        const channel = message.client.channels.cache.get(input.replace(/<|#|>/g, ''));
+        return channel ? `#${channel.name}` : input;
       })
       .replace(/<@&[0-9]+>/g, input => {
-        if (channel.type === 'dm') return input;
-        const role = channel.guild.roles.cache.get(input.replace(/<|@|>|&/g, ''));
+        if (message.channel.type === 'dm') return input;
+        const role = message.guild.roles.cache.get(input.replace(/<|@|>|&/g, ''));
         return role ? `@${role.name}` : input;
       });
     return str;
