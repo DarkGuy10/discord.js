@@ -45,7 +45,6 @@ class MessageEmbed {
      * * `article` - an article embed
      * * `link` - a link embed
      * @type {string}
-     * @deprecated
      */
     this.type = data.type || 'rich';
 

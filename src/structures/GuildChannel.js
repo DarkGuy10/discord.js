@@ -35,44 +35,35 @@ class GuildChannel extends Channel {
      * @type {Guild}
      */
     this.guild = guild;
-
-    this.parentID = null;
-    this.permissionOverwrites = new Collection();
   }
 
   _patch(data) {
     super._patch(data);
 
-    if ('name' in data) {
-      /**
-       * The name of the guild channel
-       * @type {string}
-       */
-      this.name = data.name;
-    }
+    /**
+     * The name of the guild channel
+     * @type {string}
+     */
+    this.name = data.name;
 
-    if ('position' in data) {
-      /**
-       * The raw position of the channel from discord
-       * @type {number}
-       */
-      this.rawPosition = data.position;
-    }
+    /**
+     * The raw position of the channel from discord
+     * @type {number}
+     */
+    this.rawPosition = data.position;
 
-    if ('parent_id' in data) {
-      /**
-       * The ID of the category parent of this channel
-       * @type {?Snowflake}
-       */
-      this.parentID = data.parent_id;
-    }
+    /**
+     * The ID of the category parent of this channel
+     * @type {?Snowflake}
+     */
+    this.parentID = data.parent_id || null;
 
-    if ('permission_overwrites' in data) {
-      /**
-       * A map of permission overwrites in this channel for roles and users
-       * @type {Collection<Snowflake, PermissionOverwrites>}
-       */
-      this.permissionOverwrites = new Collection();
+    /**
+     * A map of permission overwrites in this channel for roles and users
+     * @type {Collection<Snowflake, PermissionOverwrites>}
+     */
+    this.permissionOverwrites = new Collection();
+    if (data.permission_overwrites) {
       for (const overwrite of data.permission_overwrites) {
         this.permissionOverwrites.set(overwrite.id, new PermissionOverwrites(this, overwrite));
       }
@@ -582,20 +573,23 @@ class GuildChannel extends Channel {
    * @returns {Promise<GuildChannel>}
    */
   clone(options = {}) {
-    return this.guild.channels.create(options.name, {
-      name: this.name,
-      permissionOverwrites: this.permissionOverwrites,
-      topic: this.topic,
-      type: this.type,
-      nsfw: this.nsfw,
-      parent: this.parent,
-      bitrate: this.bitrate,
-      userLimit: this.userLimit,
-      rateLimitPerUser: this.rateLimitPerUser,
-      position: this.position,
-      reason: null,
-      ...options,
-    });
+    Util.mergeDefault(
+      {
+        name: this.name,
+        permissionOverwrites: this.permissionOverwrites,
+        topic: this.topic,
+        type: this.type,
+        nsfw: this.nsfw,
+        parent: this.parent,
+        bitrate: this.bitrate,
+        userLimit: this.userLimit,
+        rateLimitPerUser: this.rateLimitPerUser,
+        position: this.position,
+        reason: null,
+      },
+      options,
+    );
+    return this.guild.channels.create(options.name, options);
   }
   /* eslint-enable max-len */
 

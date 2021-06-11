@@ -72,6 +72,7 @@ class Client extends BaseClient {
       ];
     }
 
+    this.options.intents = Intents.ALL;
     this._validateOptions();
 
     /**
@@ -255,7 +256,7 @@ class Client extends BaseClient {
     const code = DataResolver.resolveInviteCode(invite);
     return this.api
       .invites(code)
-      .get({ query: { with_counts: true, with_expiration: true } })
+      .get({ query: { with_counts: true } })
       .then(data => new Invite(this, data));
   }
 
@@ -290,7 +291,7 @@ class Client extends BaseClient {
     return this.api
       .webhooks(id, token)
       .get()
-      .then(data => new Webhook(this, { token, ...data }));
+      .then(data => new Webhook(this, data));
   }
 
   /**
@@ -450,11 +451,6 @@ class Client extends BaseClient {
    * @private
    */
   _validateOptions(options = this.options) {
-    if (typeof options.intents === 'undefined') {
-      throw new TypeError('CLIENT_MISSING_INTENTS');
-    } else {
-      options.intents = Intents.resolve(options.intents);
-    }
     if (typeof options.shardCount !== 'number' || isNaN(options.shardCount) || options.shardCount < 1) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'shardCount', 'a number greater than or equal to 1');
     }
@@ -491,12 +487,6 @@ class Client extends BaseClient {
     }
     if (typeof options.retryLimit !== 'number' || isNaN(options.retryLimit)) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'retryLimit', 'a number');
-    }
-    if (
-      typeof options.rejectOnRateLimit !== 'undefined' &&
-      !(typeof options.rejectOnRateLimit === 'function' || Array.isArray(options.rejectOnRateLimit))
-    ) {
-      throw new TypeError('CLIENT_INVALID_OPTION', 'rejectOnRateLimit', 'an array or a function');
     }
   }
 }

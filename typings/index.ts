@@ -38,9 +38,9 @@ client.on('message', ({ channel }) => {
 
   const attachment = new MessageAttachment('file.png');
   const embed = new MessageEmbed();
-  assertIsMessage(channel.send({ files: [attachment] }));
+  assertIsMessage(channel.send(attachment));
   assertIsMessage(channel.send(embed));
-  assertIsMessage(channel.send({ embed, files: [attachment] }));
+  assertIsMessage(channel.send([attachment, embed]));
 
   assertIsMessageArray(channel.send({ split: true }));
 

@@ -23,12 +23,6 @@ class CommandInteraction extends Interaction {
      */
 
     /**
-     * The ID of the channel this interaction was sent in
-     * @type {Snowflake}
-     * @name CommandInteraction#channelID
-     */
-
-    /**
      * The ID of the invoked application command
      * @type {Snowflake}
      */

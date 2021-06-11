@@ -28,6 +28,7 @@ class TextChannel extends GuildChannel {
     /**
      * If the guild considers this channel NSFW
      * @type {boolean}
+     * @readonly
      */
     this.nsfw = Boolean(data.nsfw);
     this._typing = new Map();
@@ -36,46 +37,34 @@ class TextChannel extends GuildChannel {
   _patch(data) {
     super._patch(data);
 
-    if ('topic' in data) {
-      /**
-       * The topic of the text channel
-       * @type {?string}
-       */
-      this.topic = data.topic;
-    }
+    /**
+     * The topic of the text channel
+     * @type {?string}
+     */
+    this.topic = data.topic;
 
-    if ('nsfw' in data) {
-      this.nsfw = Boolean(data.nsfw);
-    }
+    if (typeof data.nsfw !== 'undefined') this.nsfw = Boolean(data.nsfw);
 
-    if ('last_message_id' in data) {
-      /**
-       * The ID of the last message sent in this channel, if one was sent
-       * @type {?Snowflake}
-       */
-      this.lastMessageID = data.last_message_id;
-    }
+    /**
+     * The ID of the last message sent in this channel, if one was sent
+     * @type {?Snowflake}
+     */
+    this.lastMessageID = data.last_message_id;
 
-    if ('rate_limit_per_user' in data) {
-      /**
-       * The ratelimit per user for this channel in seconds
-       * <warn>It is not currently possible to set a rate limit per user on a `NewsChannel`.</warn>
-       * @type {number}
-       */
-      this.rateLimitPerUser = data.rate_limit_per_user;
-    }
+    /**
+     * The ratelimit per user for this channel in seconds
+     * <warn>It is not currently possible to set a rate limit per user on a `NewsChannel`.</warn>
+     * @type {number}
+     */
+    this.rateLimitPerUser = data.rate_limit_per_user || 0;
 
-    if ('last_pin_timestamp' in data) {
-      /**
-       * The timestamp when the last pinned message was pinned, if there was one
-       * @type {?number}
-       */
-      this.lastPinTimestamp = data.last_pin_timestamp ? new Date(data.last_pin_timestamp).getTime() : null;
-    }
+    /**
+     * The timestamp when the last pinned message was pinned, if there was one
+     * @type {?number}
+     */
+    this.lastPinTimestamp = data.last_pin_timestamp ? new Date(data.last_pin_timestamp).getTime() : null;
 
-    if ('messages' in data) {
-      for (const message of data.messages) this.messages.add(message);
-    }
+    if (data.messages) for (const message of data.messages) this.messages.add(message);
   }
 
   /**
@@ -169,7 +158,7 @@ class TextChannel extends GuildChannel {
   createMessageCollector() {}
   awaitMessages() {}
   createMessageComponentInteractionCollector() {}
-  awaitMessageComponentInteraction() {}
+  awaitMessageComponentInteractions() {}
   bulkDelete() {}
 }
 

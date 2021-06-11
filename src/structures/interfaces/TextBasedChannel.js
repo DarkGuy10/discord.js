@@ -5,7 +5,7 @@ const MessageCollector = require('../MessageCollector');
 const APIMessage = require('../APIMessage');
 const SnowflakeUtil = require('../../util/SnowflakeUtil');
 const Collection = require('../../util/Collection');
-const { RangeError, TypeError, Error } = require('../../errors');
+const { RangeError, TypeError } = require('../../errors');
 const MessageComponentInteractionCollector = require('../MessageComponentInteractionCollector');
 
 /**
@@ -63,8 +63,6 @@ class TextBasedChannel {
    * @property {string|boolean} [code] Language for optional codeblock formatting to apply
    * @property {boolean|SplitOptions} [split=false] Whether or not the message should be split into multiple messages if
    * it exceeds the character limit. If an object is provided, these are the options for splitting the message
-   * @property {MessageActionRow[]|MessageActionRowOptions[]|MessageActionRowComponentResolvable[][]} [components]
-   * Action rows containing interactive components for the message (buttons, select menus)
    */
 
   /**
@@ -102,8 +100,7 @@ class TextBasedChannel {
    * Options for splitting a message.
    * @typedef {Object} SplitOptions
    * @property {number} [maxLength=2000] Maximum character length per message piece
-   * @property {string|string[]|RegExp|RegExp[]} [char='\n'] Character(s) or Regex(s) to split the message with,
-   * an array can be used to split multiple times
+   * @property {string} [char='\n'] Character to split the message with
    * @property {string} [prepend=''] Text to prepend to every piece except the first
    * @property {string} [append=''] Text to append to every piece except the last
    */
@@ -118,7 +115,8 @@ class TextBasedChannel {
 
   /**
    * Sends a message to this channel.
-   * @param {string|APIMessage|MessageOptions} options The options to provide
+   * @param {string|APIMessage} [content=''] The content to send
+   * @param {MessageOptions|MessageAdditions} [options={}] The options to provide
    * @returns {Promise<Message|Message[]>}
    * @example
    * // Send a basic message
@@ -144,35 +142,34 @@ class TextBasedChannel {
    *   .catch(console.error);
    * @example
    * // Send an embed with a local image inside
-   * channel.send({
-   *   content: 'This is an embed',
+   * channel.send('This is an embed', {
    *   embed: {
    *     thumbnail: {
-   *       url: 'attachment://file.jpg'
-   *     }
-   *   },
-   *   files: [{
-   *     attachment: 'entire/path/to/file.jpg',
-   *     name: 'file.jpg'
-   *   }]
+   *          url: 'attachment://file.jpg'
+   *       }
+   *    },
+   *    files: [{
+   *       attachment: 'entire/path/to/file.jpg',
+   *       name: 'file.jpg'
+   *    }]
    * })
    *   .then(console.log)
    *   .catch(console.error);
    */
-  async send(options) {
+  async send(content, options) {
     const User = require('../User');
     const GuildMember = require('../GuildMember');
 
     if (this instanceof User || this instanceof GuildMember) {
-      return this.createDM().then(dm => dm.send(options));
+      return this.createDM().then(dm => dm.send(content, options));
     }
 
     let apiMessage;
 
-    if (options instanceof APIMessage) {
-      apiMessage = options.resolveData();
+    if (content instanceof APIMessage) {
+      apiMessage = content.resolveData();
     } else {
-      apiMessage = APIMessage.create(this, options).resolveData();
+      apiMessage = APIMessage.create(this, content, options).resolveData();
       if (Array.isArray(apiMessage.data.content)) {
         return Promise.all(apiMessage.split().map(this.send.bind(this)));
       }
@@ -336,25 +333,24 @@ class TextBasedChannel {
   }
 
   /**
-   * Collects a single component interaction that passes the filter.
-   * The Promise will reject if the time expires.
+   * Similar to createMessageComponentInteractionCollector but in promise form.
+   * Resolves with a collection of interactions that pass the specified filter.
    * @param {CollectorFilter} filter The filter function to use
-   * @param {number} [time] Time to wait for an interaction before rejecting
-   * @returns {Promise<MessageComponentInteraction>}
+   * @param {AwaitMessageComponentInteractionsOptions} [options={}] Optional options to pass to the internal collector
+   * @returns {Promise<Collection<string, MessageComponentInteraction>>}
    * @example
-   * // Collect a button interaction
+   * // Create a button interaction collector
    * const filter = (interaction) => interaction.customID === 'button' && interaction.user.id === 'someID';
-   * channel.awaitMessageComponentInteraction(filter, 15000)
-   *   .then(interaction => console.log(`${interaction.customID} was clicked!`))
+   * channel.awaitMessageComponentInteractions(filter, { time: 15000 })
+   *   .then(collected => console.log(`Collected ${collected.size} interactions`))
    *   .catch(console.error);
    */
-  awaitMessageComponentInteraction(filter, time) {
+  awaitMessageComponentInteractions(filter, options = {}) {
     return new Promise((resolve, reject) => {
-      const collector = this.createMessageComponentInteractionCollector(filter, { max: 1, time });
-      collector.once('end', interactions => {
-        const interaction = interactions.first();
-        if (!interaction) reject(new Error('INTERACTION_COLLECTOR_TIMEOUT'));
-        else resolve(interaction);
+      const collector = this.createMessageComponentInteractionCollector(filter, options);
+      collector.once('end', (interactions, reason) => {
+        if (options.errors && options.errors.includes(reason)) reject(interactions);
+        else resolve(interactions);
       });
     });
   }
@@ -424,7 +420,7 @@ class TextBasedChannel {
         'createMessageCollector',
         'awaitMessages',
         'createMessageComponentInteractionCollector',
-        'awaitMessageComponentInteraction',
+        'awaitMessageComponentInteractions',
       );
     }
     for (const prop of props) {

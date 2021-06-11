@@ -1,7 +1,6 @@
 'use strict';
 
 const ApplicationCommandManager = require('./ApplicationCommandManager');
-const { TypeError } = require('../errors');
 const Collection = require('../util/Collection');
 const { ApplicationCommandPermissionTypes } = require('../util/Constants');
 

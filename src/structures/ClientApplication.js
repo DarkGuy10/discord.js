@@ -22,6 +22,7 @@ class ClientApplication extends Application {
 
   _patch(data) {
     super._patch(data);
+    if(!data?.id) return;
 
     /**
      * The flags this application has
