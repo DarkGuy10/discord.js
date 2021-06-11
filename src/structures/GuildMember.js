@@ -1,7 +1,6 @@
 'use strict';
 
 const Base = require('./Base');
-const Role = require('./Role');
 const TextBasedChannel = require('./interfaces/TextBasedChannel');
 const { Error } = require('../errors');
 const GuildMemberRoleManager = require('../managers/GuildMemberRoleManager');
@@ -85,7 +84,9 @@ class GuildMember extends Base {
 
     if ('nick' in data) this.nickname = data.nick;
     if ('joined_at' in data) this.joinedTimestamp = new Date(data.joined_at).getTime();
-    if ('premium_since' in data) this.premiumSinceTimestamp = new Date(data.premium_since).getTime();
+    if ('premium_since' in data) {
+      this.premiumSinceTimestamp = data.premium_since === null ? null : new Date(data.premium_since).getTime();
+    }
     if ('roles' in data) this._roles = data.roles;
     this.pending = data.pending ?? false;
   }
@@ -211,7 +212,7 @@ class GuildMember extends Base {
   }
 
   /**
-   * The overall set of permissions for this member, taking only roles into account
+   * The overall set of permissions for this member, taking only roles and owner status into account
    * @type {Readonly<Permissions>}
    * @readonly
    */
@@ -281,33 +282,8 @@ class GuildMember extends Base {
    * @param {string} [reason] Reason for editing this user
    * @returns {Promise<GuildMember>}
    */
-  async edit(data, reason) {
-    if (data.channel) {
-      data.channel = this.guild.channels.resolve(data.channel);
-      if (!data.channel || data.channel.type !== 'voice') {
-        throw new Error('GUILD_VOICE_CHANNEL_RESOLVE');
-      }
-      data.channel_id = data.channel.id;
-      data.channel = undefined;
-    } else if (data.channel === null) {
-      data.channel_id = null;
-      data.channel = undefined;
-    }
-    if (data.roles) data.roles = data.roles.map(role => (role instanceof Role ? role.id : role));
-    let endpoint = this.client.api.guilds(this.guild.id);
-    if (this.user.id === this.client.user.id) {
-      const keys = Object.keys(data);
-      if (keys.length === 1 && keys[0] === 'nick') endpoint = endpoint.members('@me').nick;
-      else endpoint = endpoint.members(this.id);
-    } else {
-      endpoint = endpoint.members(this.id);
-    }
-    await endpoint.patch({ data, reason });
-
-    const clone = this._clone();
-    data.user = this.user;
-    clone._patch(data);
-    return clone;
+  edit(data, reason) {
+    return this.guild.members.edit(this, data, reason);
   }
 
   /**
@@ -342,17 +318,13 @@ class GuildMember extends Base {
    * @returns {Promise<GuildMember>}
    */
   kick(reason) {
-    return this.client.api
-      .guilds(this.guild.id)
-      .members(this.user.id)
-      .delete({ reason })
-      .then(() => this);
+    return this.guild.members.kick(this, reason);
   }
 
   /**
    * Bans this guild member.
    * @param {Object} [options] Options for the ban
-   * @param {number} [options.days=0] Number of days of messages to delete, must be between 0 and 7
+   * @param {number} [options.days=0] Number of days of messages to delete, must be between 0 and 7, inclusive
    * @param {string} [options.reason] Reason for banning
    * @returns {Promise<GuildMember>}
    * @example
@@ -372,6 +344,29 @@ class GuildMember extends Base {
    */
   fetch(force = false) {
     return this.guild.members.fetch({ user: this.id, cache: true, force });
+  }
+
+  /**
+   * Whether this guild member equals another guild member. It compares all properties, so for most
+   * comparison it is advisable to just compare `member.id === member2.id` as it is significantly faster
+   * and is often what most users need.
+   * @param {GuildMember} member The member to compare with
+   * @returns {boolean}
+   */
+  equals(member) {
+    return (
+      member instanceof this.constructor &&
+      this.id === member.id &&
+      this.partial === member.partial &&
+      this.guild.id === member.guild.id &&
+      this.joinedTimestamp === member.joinedTimestamp &&
+      this.lastMessageID === member.lastMessageID &&
+      this.lastMessageChannelID === member.lastMessageChannelID &&
+      this.nickname === member.nickname &&
+      this.pending === member.pending &&
+      (this._roles === member._roles ||
+        (this._roles.length === member._roles.length && this._roles.every((role, i) => role === member._roles[i])))
+    );
   }
 
   /**

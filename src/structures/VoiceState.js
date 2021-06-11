@@ -63,10 +63,22 @@ class VoiceState extends Base {
      */
     this.streaming = data.self_stream || false;
     /**
-     * The ID of the voice channel that this member is in
+     * The ID of the voice or stage channel that this member is in
      * @type {?Snowflake}
      */
     this.channelID = data.channel_id || null;
+    /**
+     * Whether this member is suppressed from speaking. This property is specific to stage channels only.
+     * @type {boolean}
+     */
+    this.suppress = data.suppress;
+    /**
+     * The time at which the member requested to speak. This property is specific to stage channels only.
+     * @type {?number}
+     */
+    this.requestToSpeakTimestamp = data.request_to_speak_timestamp
+      ? new Date(data.request_to_speak_timestamp).getTime()
+      : null;
     return this;
   }
 
@@ -81,21 +93,11 @@ class VoiceState extends Base {
 
   /**
    * The channel that the member is connected to
-   * @type {?VoiceChannel}
+   * @type {?VoiceChannel|StageChannel}
    * @readonly
    */
   get channel() {
     return this.guild.channels.cache.get(this.channelID) || null;
-  }
-
-  /**
-   * If this is a voice state of the client user, then this will refer to the active VoiceConnection for this guild
-   * @type {?VoiceConnection}
-   * @readonly
-   */
-  get connection() {
-    if (this.id !== this.client.user.id) return null;
-    return this.client.voice.connections.get(this.guild.id) || null;
   }
 
   /**
@@ -114,16 +116,6 @@ class VoiceState extends Base {
    */
   get mute() {
     return this.serverMute || this.selfMute;
-  }
-
-  /**
-   * Whether this member is currently speaking. A boolean if the information is available (aka
-   * the bot is connected to any voice channel in the guild), otherwise this is null
-   * @type {?boolean}
-   * @readonly
-   */
-  get speaking() {
-    return this.channel && this.channel.connection ? Boolean(this.channel.connection._speaking.get(this.id)) : null;
   }
 
   /**
@@ -147,7 +139,7 @@ class VoiceState extends Base {
   }
 
   /**
-   * Kicks the member from the voice channel.
+   * Kicks the member from the channel.
    * @param {string} [reason] Reason for kicking member from the channel
    * @returns {Promise<GuildMember>}
    */
@@ -169,31 +161,62 @@ class VoiceState extends Base {
   }
 
   /**
-   * Self-mutes/unmutes the bot for this voice state.
-   * @param {boolean} mute Whether or not the bot should be self-muted
-   * @returns {Promise<boolean>} true if the voice state was successfully updated, otherwise false
+   * Toggles the request to speak in the channel.
+   * Only applicable for stage channels and for the client's own voice state.
+   * @param {boolean} request Whether or not the client is requesting to become a speaker.
+   * @example
+   * // Making the client request to speak in a stage channel (raise its hand)
+   * guild.me.voice.setRequestToSpeak(true);
+   * @example
+   * // Making the client cancel a request to speak
+   * guild.me.voice.setRequestToSpeak(false);
+   * @returns {Promise<void>}
    */
-  async setSelfMute(mute) {
-    if (this.id !== this.client.user.id) throw new Error('VOICE_STATE_NOT_OWN');
-    if (typeof mute !== 'boolean') throw new TypeError('VOICE_STATE_INVALID_TYPE', 'mute');
-    if (!this.connection) return false;
-    this.selfMute = mute;
-    await this.connection.sendVoiceStateUpdate();
-    return true;
+  async setRequestToSpeak(request) {
+    const channel = this.channel;
+    if (channel?.type !== 'stage') throw new Error('VOICE_NOT_STAGE_CHANNEL');
+
+    if (this.client.user.id !== this.id) throw new Error('VOICE_STATE_NOT_OWN');
+
+    await this.client.api.guilds(this.guild.id, 'voice-states', '@me').patch({
+      data: {
+        channel_id: this.channelID,
+        request_to_speak_timestamp: request ? new Date().toISOString() : null,
+      },
+    });
   }
 
   /**
-   * Self-deafens/undeafens the bot for this voice state.
-   * @param {boolean} deaf Whether or not the bot should be self-deafened
-   * @returns {Promise<boolean>} true if the voice state was successfully updated, otherwise false
+   * Suppress/unsuppress the user. Only applicable for stage channels.
+   * @param {boolean} suppressed - Whether or not the user should be suppressed.
+   * @example
+   * // Making the client a speaker
+   * guild.me.voice.setSuppressed(false);
+   * @example
+   * // Making the client an audience member
+   * guild.me.voice.setSuppressed(true);
+   * @example
+   * // Inviting another user to speak
+   * voiceState.setSuppressed(false);
+   * @example
+   * // Moving another user to the audience, or cancelling their invite to speak
+   * voiceState.setSuppressed(true);
+   * @returns {Promise<void>}
    */
-  async setSelfDeaf(deaf) {
-    if (this.id !== this.client.user.id) return new Error('VOICE_STATE_NOT_OWN');
-    if (typeof deaf !== 'boolean') return new TypeError('VOICE_STATE_INVALID_TYPE', 'deaf');
-    if (!this.connection) return false;
-    this.selfDeaf = deaf;
-    await this.connection.sendVoiceStateUpdate();
-    return true;
+  async setSuppressed(suppressed) {
+    if (typeof suppressed !== 'boolean') throw new TypeError('VOICE_STATE_INVALID_TYPE', 'suppressed');
+
+    const channel = this.channel;
+    if (channel?.type !== 'stage') throw new Error('VOICE_NOT_STAGE_CHANNEL');
+
+    const target = this.client.user.id === this.id ? '@me' : this.id;
+
+    await this.client.api.guilds(this.guild.id, 'voice-states', target).patch({
+      data: {
+        channel_id: this.channelID,
+        suppress: suppressed,
+      },
+    });
   }
 
   toJSON() {

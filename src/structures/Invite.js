@@ -1,6 +1,8 @@
 'use strict';
 
 const Base = require('./Base');
+const IntegrationApplication = require('./IntegrationApplication');
+const { Error } = require('../errors');
 const { Endpoints } = require('../util/Constants');
 const Permissions = require('../util/Permissions');
 
@@ -71,22 +73,31 @@ class Invite extends Base {
     this.inviter = data.inviter ? this.client.users.add(data.inviter) : null;
 
     /**
-     * The target user for this invite
+     * The user whose stream to display for this voice channel stream invite
      * @type {?User}
      */
     this.targetUser = data.target_user ? this.client.users.add(data.target_user) : null;
 
     /**
-     * The type of the target user:
+     * The embedded application to open for this voice channel embedded application invite
+     * @type {?IntegrationApplication}
+     */
+    this.targetApplication = data.target_application
+      ? new IntegrationApplication(this.client, data.target_application)
+      : null;
+
+    /**
+     * The type of the invite target:
      * * 1: STREAM
-     * @typedef {number} TargetUser
+     * * 2: EMBEDDED_APPLICATION
+     * @typedef {number} TargetType
      */
 
     /**
-     * The target user type
-     * @type {?TargetUser}
+     * The target type
+     * @type {?TargetType}
      */
-    this.targetUserType = typeof data.target_user_type === 'number' ? data.target_user_type : null;
+    this.targetType = typeof data.target_type === 'number' ? data.target_type : null;
 
     /**
      * The channel the invite is for
@@ -99,6 +110,8 @@ class Invite extends Base {
      * @type {?number}
      */
     this.createdTimestamp = 'created_at' in data ? new Date(data.created_at).getTime() : null;
+
+    this._expiresTimestamp = 'expires_at' in data ? new Date(data.expires_at).getTime() : null;
   }
 
   /**
@@ -131,7 +144,10 @@ class Invite extends Base {
    * @readonly
    */
   get expiresTimestamp() {
-    return this.createdTimestamp && this.maxAge ? this.createdTimestamp + this.maxAge * 1000 : null;
+    return (
+      this._expiresTimestamp ??
+      (this.createdTimestamp && this.maxAge ? this.createdTimestamp + this.maxAge * 1000 : null)
+    );
   }
 
   /**
@@ -190,5 +206,11 @@ class Invite extends Base {
     return this.code;
   }
 }
+
+/**
+ * Regular expression that globally matches Discord invite links
+ * @type {RegExp}
+ */
+Invite.INVITES_PATTERN = /discord(?:(?:app)?\.com\/invite|\.gg(?:\/invite)?)\/([\w-]{2,255})/gi;
 
 module.exports = Invite;

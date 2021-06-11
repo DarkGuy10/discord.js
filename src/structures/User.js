@@ -3,7 +3,7 @@
 const Base = require('./Base');
 const TextBasedChannel = require('./interfaces/TextBasedChannel');
 const { Error } = require('../errors');
-const Snowflake = require('../util/Snowflake');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
 const UserFlags = require('../util/UserFlags');
 
 let Structures;
@@ -29,6 +29,18 @@ class User extends Base {
 
     this.system = null;
     this.flags = null;
+
+    /**
+     * The ID of the last message sent by the user, if one was sent
+     * @type {?Snowflake}
+     */
+    this.lastMessageID = null;
+
+    /**
+     * The ID of the channel for the last message sent by the user, if one was sent
+     * @type {?Snowflake}
+     */
+    this.lastMessageChannelID = null;
 
     this._patch(data);
   }
@@ -87,18 +99,6 @@ class User extends Base {
        */
       this.flags = new UserFlags(data.public_flags);
     }
-
-    /**
-     * The ID of the last message sent by the user, if one was sent
-     * @type {?Snowflake}
-     */
-    this.lastMessageID = null;
-
-    /**
-     * The ID of the channel for the last message sent by the user, if one was sent
-     * @type {?Snowflake}
-     */
-    this.lastMessageChannelID = null;
   }
 
   /**
@@ -116,7 +116,7 @@ class User extends Base {
    * @readonly
    */
   get createdTimestamp() {
-    return Snowflake.deconstruct(this.id).timestamp;
+    return SnowflakeUtil.deconstruct(this.id).timestamp;
   }
 
   /**
@@ -245,7 +245,7 @@ class User extends Base {
         recipient_id: this.id,
       },
     });
-    return this.client.actions.ChannelCreate.handle(data).channel;
+    return this.client.channels.add(data);
   }
 
   /**
@@ -255,8 +255,9 @@ class User extends Base {
   async deleteDM() {
     const { dmChannel } = this;
     if (!dmChannel) throw new Error('USER_NO_DMCHANNEL');
-    const data = await this.client.api.channels(dmChannel.id).delete();
-    return this.client.actions.ChannelDelete.handle(data).channel;
+    await this.client.api.channels(dmChannel.id).delete();
+    this.client.channels.remove(dmChannel.id);
+    return dmChannel;
   }
 
   /**

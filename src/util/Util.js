@@ -57,15 +57,27 @@ class Util {
 
   /**
    * Splits a string into multiple chunks at a designated character that do not exceed a specific length.
-   * @param {StringResolvable} text Content to split
+   * @param {string} text Content to split
    * @param {SplitOptions} [options] Options controlling the behavior of the split
    * @returns {string[]}
    */
   static splitMessage(text, { maxLength = 2000, char = '\n', prepend = '', append = '' } = {}) {
-    text = Util.resolveString(text);
+    text = Util.verifyString(text, RangeError, 'MESSAGE_CONTENT_TYPE', false);
     if (text.length <= maxLength) return [text];
-    const splitText = text.split(char);
-    if (splitText.some(chunk => chunk.length > maxLength)) throw new RangeError('SPLIT_MAX_LEN');
+    let splitText = [text];
+    if (Array.isArray(char)) {
+      while (char.length > 0 && splitText.some(elem => elem.length > maxLength)) {
+        const currentChar = char.shift();
+        if (currentChar instanceof RegExp) {
+          splitText = splitText.map(chunk => chunk.match(currentChar));
+        } else {
+          splitText = splitText.map(chunk => chunk.split(currentChar));
+        }
+      }
+    } else {
+      splitText = text.split(char);
+    }
+    if (splitText.some(elem => elem.length > maxLength)) throw new RangeError('SPLIT_MAX_LEN');
     const messages = [];
     let msg = '';
     for (const chunk of splitText) {
@@ -268,6 +280,20 @@ class Util {
   }
 
   /**
+   * Resolves a partial emoji object from an {@link EmojiIdentifierResolvable}, without checking a Client.
+   * @param {EmojiIdentifierResolvable} emoji Emoji identifier to resolve
+   * @returns {?RawEmoji}
+   * @private
+   */
+  static resolvePartialEmoji(emoji) {
+    if (!emoji) return null;
+    if (typeof emoji === 'string') return /^\d{17,19}$/.test(emoji) ? { id: emoji } : Util.parseEmoji(emoji);
+    const { id, name, animated } = emoji;
+    if (!id && !name) return null;
+    return { id, name, animated };
+  }
+
+  /**
    * Shallow-copies an object with its class/prototype intact.
    * @param {Object} obj Object to clone
    * @returns {Object}
@@ -347,22 +373,22 @@ class Util {
   }
 
   /**
-   * Data that can be resolved to give a string. This can be:
-   * * A string
-   * * An array (joined with a new line delimiter to give a string)
-   * * Any value
-   * @typedef {string|Array|*} StringResolvable
-   */
-
-  /**
-   * Resolves a StringResolvable to a string.
-   * @param {StringResolvable} data The string resolvable to resolve
+   * Verifies the provided data is a string, otherwise throws provided error.
+   * @param {string} data The string resolvable to resolve
+   * @param {Function} [error] The Error constructor to instantiate. Defaults to Error
+   * @param {string} [errorMessage] The error message to throw with. Defaults to "Expected string, got <data> instead."
+   * @param {boolean} [allowEmpty=true] Whether an empty string should be allowed
    * @returns {string}
    */
-  static resolveString(data) {
-    if (typeof data === 'string') return data;
-    if (Array.isArray(data)) return data.join('\n');
-    return String(data);
+  static verifyString(
+    data,
+    error = Error,
+    errorMessage = `Expected a string, got ${data} instead.`,
+    allowEmpty = true,
+  ) {
+    if (typeof data !== 'string') throw new error(errorMessage);
+    if (!allowEmpty && data.length === 0) throw new error(errorMessage);
+    return data;
   }
 
   /**
@@ -379,11 +405,11 @@ class Util {
    * - `YELLOW`
    * - `PURPLE`
    * - `LUMINOUS_VIVID_PINK`
+   * - `FUCHSIA`
    * - `GOLD`
    * - `ORANGE`
    * - `RED`
    * - `GREY`
-   * - `DARKER_GREY`
    * - `NAVY`
    * - `DARK_AQUA`
    * - `DARK_GREEN`
@@ -394,6 +420,7 @@ class Util {
    * - `DARK_ORANGE`
    * - `DARK_RED`
    * - `DARK_GREY`
+   * - `DARKER_GREY`
    * - `LIGHT_GREY`
    * - `DARK_NAVY`
    * - `BLURPLE`
@@ -531,33 +558,33 @@ class Util {
   /**
    * The content to have all mentions replaced by the equivalent text.
    * @param {string} str The string to be converted
-   * @param {Message} message The message object to reference
+   * @param {Channel} channel The channel the string was sent in
    * @returns {string}
    */
-  static cleanContent(str, message) {
+  static cleanContent(str, channel) {
     str = str
       .replace(/<@!?[0-9]+>/g, input => {
         const id = input.replace(/<|!|>|@/g, '');
-        if (message.channel.type === 'dm') {
-          const user = message.client.users.cache.get(id);
+        if (channel.type === 'dm') {
+          const user = channel.client.users.cache.get(id);
           return user ? Util.removeMentions(`@${user.username}`) : input;
         }
 
-        const member = message.channel.guild.members.cache.get(id);
+        const member = channel.guild.members.cache.get(id);
         if (member) {
           return Util.removeMentions(`@${member.displayName}`);
         } else {
-          const user = message.client.users.cache.get(id);
+          const user = channel.client.users.cache.get(id);
           return user ? Util.removeMentions(`@${user.username}`) : input;
         }
       })
       .replace(/<#[0-9]+>/g, input => {
-        const channel = message.client.channels.cache.get(input.replace(/<|#|>/g, ''));
-        return channel ? `#${channel.name}` : input;
+        const mentionedChannel = channel.client.channels.cache.get(input.replace(/<|#|>/g, ''));
+        return mentionedChannel ? `#${mentionedChannel.name}` : input;
       })
       .replace(/<@&[0-9]+>/g, input => {
-        if (message.channel.type === 'dm') return input;
-        const role = message.guild.roles.cache.get(input.replace(/<|@|>|&/g, ''));
+        if (channel.type === 'dm') return input;
+        const role = channel.guild.roles.cache.get(input.replace(/<|@|>|&/g, ''));
         return role ? `@${role.name}` : input;
       });
     return str;

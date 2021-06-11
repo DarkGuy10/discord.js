@@ -3,9 +3,9 @@
 const Integration = require('./Integration');
 const Webhook = require('./Webhook');
 const Collection = require('../util/Collection');
-const { PartialTypes } = require('../util/Constants');
+const { OverwriteTypes, PartialTypes } = require('../util/Constants');
 const Permissions = require('../util/Permissions');
-const Snowflake = require('../util/Snowflake');
+const SnowflakeUtil = require('../util/SnowflakeUtil');
 const Util = require('../util/Util');
 
 /**
@@ -79,7 +79,7 @@ const Targets = {
  * * INTEGRATION_CREATE: 80
  * * INTEGRATION_UPDATE: 81
  * * INTEGRATION_DELETE: 82
- * @typedef {?number|string} AuditLogAction
+ * @typedef {?(number|string)} AuditLogAction
  */
 
 /**
@@ -179,15 +179,17 @@ class GuildAuditLogs {
   /**
    * The target of an entry. It can be one of:
    * * A guild
+   * * A channel
    * * A user
    * * A role
-   * * An emoji
    * * An invite
    * * A webhook
+   * * An emoji
+   * * A message
    * * An integration
    * * An object with an id key if target was deleted
    * * An object where the keys represent either the new value or the old value
-   * @typedef {?Object|Guild|User|Role|GuildEmoji|Invite|Webhook|Integration} AuditLogEntryTarget
+   * @typedef {?(Object|Guild|Channel|User|Role|Invite|Webhook|GuildEmoji|Message|Integration)} AuditLogEntryTarget
    */
 
   /**
@@ -319,15 +321,17 @@ class GuildAuditLogsEntry {
 
     /**
      * The user that executed this entry
-     * @type {User}
+     * @type {?User}
      */
-    this.executor = guild.client.options.partials.includes(PartialTypes.USER)
-      ? guild.client.users.add({ id: data.user_id })
-      : guild.client.users.cache.get(data.user_id);
+    this.executor = data.user_id
+      ? guild.client.options.partials.includes(PartialTypes.USER)
+        ? guild.client.users.add({ id: data.user_id })
+        : guild.client.users.cache.get(data.user_id)
+      : null;
 
     /**
      * An entry in the audit log representing a specific change.
-     * @typedef {object} AuditLogChange
+     * @typedef {Object} AuditLogChange
      * @property {string} key The property that was changed, e.g. `nick` for nickname changes
      * @property {*} [old] The old value of the change, e.g. for nicknames, the old nickname
      * @property {*} [new] The new value of the change, e.g. for nicknames, the new nickname
@@ -347,7 +351,7 @@ class GuildAuditLogsEntry {
 
     /**
      * Any extra data from the entry
-     * @type {?Object|Role|GuildMember}
+     * @type {?(Object|Role|GuildMember)}
      */
     this.extra = null;
     switch (data.action_type) {
@@ -384,16 +388,19 @@ class GuildAuditLogsEntry {
       case Actions.CHANNEL_OVERWRITE_CREATE:
       case Actions.CHANNEL_OVERWRITE_UPDATE:
       case Actions.CHANNEL_OVERWRITE_DELETE:
-        switch (data.options.type) {
-          case 'member':
-            this.extra = guild.members.cache.get(data.options.id) || { id: data.options.id, type: 'member' };
-            break;
-
-          case 'role':
+        switch (Number(data.options.type)) {
+          case OverwriteTypes.role:
             this.extra = guild.roles.cache.get(data.options.id) || {
               id: data.options.id,
               name: data.options.role_name,
-              type: 'role',
+              type: OverwriteTypes[OverwriteTypes.role],
+            };
+            break;
+
+          case OverwriteTypes.member:
+            this.extra = guild.members.cache.get(data.options.id) || {
+              id: data.options.id,
+              type: OverwriteTypes[OverwriteTypes.member],
             };
             break;
 
@@ -475,8 +482,18 @@ class GuildAuditLogsEntry {
           ),
           guild,
         );
+    } else if (targetType === Targets.CHANNEL) {
+      this.target =
+        guild.channels.cache.get(data.target_id) ||
+        this.changes.reduce(
+          (o, c) => {
+            o[c.key] = c.new || c.old;
+            return o;
+          },
+          { id: data.target_id },
+        );
     } else if (data.target_id) {
-      this.target = guild[`${targetType.toLowerCase()}s`].cache.get(data.target_id) || { id: data.target_id };
+      this.target = guild[`${targetType.toLowerCase()}s`]?.cache.get(data.target_id) || { id: data.target_id };
     }
   }
 
@@ -486,7 +503,7 @@ class GuildAuditLogsEntry {
    * @readonly
    */
   get createdTimestamp() {
-    return Snowflake.deconstruct(this.id).timestamp;
+    return SnowflakeUtil.deconstruct(this.id).timestamp;
   }
 
   /**

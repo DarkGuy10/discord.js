@@ -5,7 +5,7 @@
   </p>
   <br />
   <p>
-    <a href="https://discord.gg/bRCvFy9"><img src="https://img.shields.io/discord/222078108977594368?color=7289da&logo=discord&logoColor=white" alt="Discord server" /></a>
+    <a href="https://discord.gg/djs"><img src="https://img.shields.io/discord/222078108977594368?color=5865F2&logo=discord&logoColor=white" alt="Discord server" /></a>
     <a href="https://www.npmjs.com/package/discord.js"><img src="https://img.shields.io/npm/v/discord.js.svg?maxAge=3600" alt="NPM version" /></a>
     <a href="https://www.npmjs.com/package/discord.js"><img src="https://img.shields.io/npm/dt/discord.js.svg?maxAge=3600" alt="NPM downloads" /></a>
     <a href="https://github.com/discordjs/discord.js/actions"><img src="https://github.com/discordjs/discord.js/workflows/Testing/badge.svg" alt="Build status" /></a>
@@ -44,16 +44,6 @@ discord.js is a powerful [Node.js](https://nodejs.org) module that allows you to
 **Node.js 14.0.0 or newer is required.**  
 Ignore any warnings about unmet peer dependencies, as they're all optional.
 
-Without voice support: `npm install discord.js`  
-With voice support ([@discordjs/opus](https://www.npmjs.com/package/@discordjs/opus)): `npm install discord.js @discordjs/opus`  
-With voice support ([opusscript](https://www.npmjs.com/package/opusscript)): `npm install discord.js opusscript`
-
-### Audio engines
-
-The preferred audio engine is @discordjs/opus, as it performs significantly better than opusscript. When both are available, discord.js will automatically choose @discordjs/opus.
-Using opusscript is only recommended for development environments where @discordjs/opus is tough to get working.
-For production bots, using @discordjs/opus should be considered a necessity, especially if they're going to be running on multiple servers.
-
 ### Optional packages
 
 - [zlib-sync](https://www.npmjs.com/package/zlib-sync) for WebSocket data compression and inflation (`npm install zlib-sync`)
@@ -63,12 +53,13 @@ For production bots, using @discordjs/opus should be considered a necessity, esp
   - [libsodium.js](https://www.npmjs.com/package/libsodium-wrappers) (`npm install libsodium-wrappers`)
 - [bufferutil](https://www.npmjs.com/package/bufferutil) for a much faster WebSocket connection (`npm install bufferutil`)
 - [utf-8-validate](https://www.npmjs.com/package/utf-8-validate) in combination with `bufferutil` for much faster WebSocket processing (`npm install utf-8-validate`)
+- [@discordjs/voice](https://github.com/discordjs/voice) for interacting with the Discord Voice API
 
 ## Example usage
 
 ```js
-const Discord = require('discord.js');
-const client = new Discord.Client();
+const { Client, Intents } = require('discord.js');
+const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -89,7 +80,7 @@ client.login('token');
 - [Documentation](https://discord.js.org/#/docs/main/master/general/welcome)
 - [Guide](https://discordjs.guide/) ([source](https://github.com/discordjs/guide)) - this is still for stable  
   See also the [Update Guide](https://discordjs.guide/additional-info/changes-in-v12.html), including updated and removed items in the library.
-- [Discord.js Discord server](https://discord.gg/bRCvFy9)
+- [Discord.js Discord server](https://discord.gg/djs)
 - [Discord API Discord server](https://discord.gg/discord-api)
 - [GitHub](https://github.com/discordjs/discord.js)
 - [NPM](https://www.npmjs.com/package/discord.js)
@@ -108,4 +99,4 @@ See [the contribution guide](https://github.com/discordjs/discord.js/blob/master
 ## Help
 
 If you don't understand something in the documentation, you are experiencing problems, or you just need a gentle
-nudge in the right direction, please don't hesitate to join our official [Discord.js Server](https://discord.gg/bRCvFy9).
+nudge in the right direction, please don't hesitate to join our official [Discord.js Server](https://discord.gg/djs).
