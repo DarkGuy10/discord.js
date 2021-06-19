@@ -67,6 +67,7 @@ class ClientPresence extends Presence {
             application_id: applicationID || undefined,
             secrets: activity.secrets || undefined,
             instance: activity.instance || undefined,
+            ...activity
           }
         : null,
     };
