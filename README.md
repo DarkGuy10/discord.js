@@ -17,7 +17,7 @@
   </p>
 </div>
 
-> ⚠️This version is not completely up to date as it needs a rework to support v9 (see [#5](https://github.com/GiorgioBrux/discord.js/issues/5)). I will try to do it in ~June
+> ⚠️This version is not up to date as it needs a rework to support v9 (see [#5](https://github.com/GiorgioBrux/discord.js/issues/5)). An experimental version is available in the [v13](https://github.com/GiorgioBrux/discord.js/tree/v13) branch.
 
 ## Table of contents
 
