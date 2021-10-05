@@ -7,6 +7,7 @@ const { Error: DJSError } = require('../../errors');
 const Collection = require('../../util/Collection');
 const { Events, ShardEvents, Status, WSCodes, WSEvents } = require('../../util/Constants');
 const Util = require('../../util/Util');
+const Intents = require('../../util/Intents');
 
 const BeforeReadyWhitelist = [
   WSEvents.READY,
@@ -130,13 +131,42 @@ class WebSocketManager extends EventEmitter {
    * @private
    */
   async connect() {
+    const invalidToken = new DJSError(WSCodes[4004]);
     const gatewayURL = 'wss://gateway.discord.gg';
-    const recommendedShards = 0;
-    const sessionStartLimit = {
-      total: 0,
-      remaining: 99999,
-      reset_after: 9999999999999999
-    };
+
+    let get;
+    try {
+      get = await this.client.api.users('@me').get();
+    } catch (e) {
+      this.client.options._tokenType = '';
+      get = await this.client.api.users('@me').get();
+    }
+
+    if (!get) throw invalidToken;
+
+    let sessionStartLimit;
+    let recommendedShards;
+    if (get.bot) {
+      this.client.options._tokenType = 'Bot';
+      const options = await this.client.api.gateway.bot.get({
+        headers: {
+          'User-Agent': 'discord.js'
+        }
+      });
+      if (!options) throw invalidToken;
+
+      this.client.options.ws.intents = Intents.NON_PRIVILEGED;
+      sessionStartLimit = options.session_start_limit;
+      recommendedShards = options.shards;
+    } else {
+      this.client.options._tokenType = '';
+      recommendedShards = 0;
+      sessionStartLimit = {
+        total: 0,
+        remaining: 99999,
+        reset_after: 9999999999999999
+      };
+    }
 
     this.sessionStartLimit = sessionStartLimit;
 

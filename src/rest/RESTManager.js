@@ -27,7 +27,7 @@ class RESTManager {
 
   getAuth() {
     const token = this.client.token || this.client.accessToken;
-    if (token) return `${token}`;
+    if (token) return `${this.client.options._tokenType} ${token}`;
     throw new Error('TOKEN_MISSING');
   }
 
