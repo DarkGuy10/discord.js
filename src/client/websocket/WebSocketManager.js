@@ -130,12 +130,12 @@ class WebSocketManager extends EventEmitter {
    * @private
    */
   async connect() {
-    let gatewayURL = 'wss://gateway.discord.gg';
-    let recommendedShards = 0;
-    let sessionStartLimit = {
-       total: 0,
-       remaining: 99999,
-       reset_after: 9999999999999999
+    const gatewayURL = 'wss://gateway.discord.gg';
+    const recommendedShards = 0;
+    const sessionStartLimit = {
+      total: 0,
+      remaining: 99999,
+      reset_after: 9999999999999999
     };
 
     this.sessionStartLimit = sessionStartLimit;

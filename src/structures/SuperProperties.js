@@ -6,18 +6,17 @@ module.exports = class SuperProperties {
          os: 'Windows',
          browser: 'Chrome',
          device: '',
-         system_locale: 'en-US',
+         system_locale: 'da-DK',
          os_version: '10',
          referrer: '',
          referring_domain: '',
          referrer_current: '',
          referring_domain_current: '',
+         browser_user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36',
+         browser_version: '91.0.4472.106',
          release_channel: 'stable',
          client_event_source: null
       };
-
-      this.getInfo();
-      this.getBrowser();
    }
 
    async getInfo() {
@@ -44,18 +43,8 @@ module.exports = class SuperProperties {
       this.info['client_build_number'] = version;
    }
 
-   async getBrowser() {
-      const res = await fetch('https://jnrbsn.github.io/user-agents/user-agents.json').then(r => r.json());
-
-      if (!res) throw `Unable to get latest user agent`;
-
-      const agent = res?.[0];
-      const version = agent?.match(/Chrome\/([\d]+\.[\d]?\.?[\d]+)/g)?.[0]?.replace('Chrome/', '');
-
-      if (!agent || !version) throw `Unable to get agent/version from user agent getter`;
-
-      this.info['browser_version'] = version;
-      this.info['browser_user_agent'] = agent;
+   async init() {
+      await this.getInfo();
    }
 
    toString() {

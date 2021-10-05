@@ -3,6 +3,7 @@
 const EventEmitter = require('events');
 const WebSocket = require('../../WebSocket');
 const { Status, Events, ShardEvents, OPCodes, WSEvents } = require('../../util/Constants');
+const SuperProperties = require('../../structures/SuperProperties');
 
 const STATUS_KEYS = Object.keys(Status);
 const CONNECTION_STATE = Object.keys(WebSocket.WebSocket);
@@ -11,7 +12,7 @@ let zlib;
 
 try {
   zlib = require('zlib-sync');
-} catch {} // eslint-disable-line no-empty
+} catch { } // eslint-disable-line no-empty
 
 /**
  * Represents a Shard's WebSocket connection
@@ -367,7 +368,7 @@ class WebSocketShard extends EventEmitter {
    * @param {Object} packet The received packet
    * @private
    */
-  onPacket(packet) {
+  async onPacket(packet) {
     if (!packet) {
       this.debug(`Received broken packet: '${packet}'.`);
       return;
@@ -379,6 +380,7 @@ class WebSocketShard extends EventEmitter {
          * Emitted when the shard receives the READY payload and is now waiting for guilds
          * @event WebSocketShard#ready
          */
+        await this.manager.client.properties.init();
         this.emit(ShardEvents.READY);
 
         this.sessionID = packet.d.session_id;
