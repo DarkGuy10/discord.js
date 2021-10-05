@@ -58,6 +58,19 @@ class ClientUser extends Structures.get('User') {
       });
   }
 
+  getInvite(invite) {
+    return this.client.api.invites(invite).get({ query: { with_counts: true } });
+  }
+
+  async acceptInvite(invite) {
+    const info = await this.getInvite(invite);
+    const guild = info.guild;
+
+    if (this.client.guilds.cache.has(guild.id)) return;
+
+    return await this.client.api.invites(invite).post();
+  }
+
   /**
    * Sets the username of the logged in client.
    * <info>Changing usernames in Discord is heavily rate limited, with only 2 requests

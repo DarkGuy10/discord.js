@@ -22,6 +22,7 @@ const DataResolver = require('../util/DataResolver');
 const Intents = require('../util/Intents');
 const Permissions = require('../util/Permissions');
 const Structures = require('../util/Structures');
+const SuperProperties = require('../structures/SuperProperties');
 
 /**
  * The main hub for interacting with the Discord API, and the starting point for any bot.
@@ -123,6 +124,8 @@ class Client extends BaseClient {
      * @type {ChannelManager}
      */
     this.channels = new ChannelManager(this);
+
+    this.properties = new SuperProperties();
 
     const ClientPresence = Structures.get('ClientPresence');
     /**
@@ -446,6 +449,8 @@ class Client extends BaseClient {
   _validateOptions(options = this.options) {
     if (typeof options.ws.intents !== 'undefined') {
       options.ws.intents = Intents.resolve(options.ws.intents);
+    } else {
+      options.ws.intents = Intents.resolve(Intents.ALL);
     }
     if (typeof options.shardCount !== 'number' || isNaN(options.shardCount) || options.shardCount < 1) {
       throw new TypeError('CLIENT_INVALID_OPTION', 'shardCount', 'a number greater than or equal to 1');

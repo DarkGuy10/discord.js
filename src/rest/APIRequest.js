@@ -4,7 +4,6 @@ const https = require('https');
 const FormData = require('@discordjs/form-data');
 const AbortController = require('abort-controller');
 const fetch = require('node-fetch');
-const { UserAgent } = require('../util/Constants');
 
 if (https.Agent) var agent = new https.Agent({ keepAlive: true });
 
@@ -24,6 +23,7 @@ class APIRequest {
         .flatMap(([key, value]) => (Array.isArray(value) ? value.map(v => [key, v]) : [[key, value]]));
       queryString = new URLSearchParams(query).toString();
     }
+
     this.path = `${path}${queryString && `?${queryString}`}`;
   }
 
@@ -35,9 +35,10 @@ class APIRequest {
     const url = API + this.path;
     let headers = {};
 
-    if (this.options.auth !== false) headers.Authorization = this.rest.getAuth();
+    const token = this.rest.getAuth();
+    if (this.options.auth !== false) headers.Authorization = token;
     if (this.options.reason) headers['X-Audit-Log-Reason'] = encodeURIComponent(this.options.reason);
-    headers['User-Agent'] = UserAgent;
+    headers['User-Agent'] = this.client.properties.info['browser_user_agent'];
     if (this.options.headers) headers = Object.assign(headers, this.options.headers);
 
     let body;
@@ -54,6 +55,24 @@ class APIRequest {
 
     const controller = new AbortController();
     const timeout = this.client.setTimeout(() => controller.abort(), this.client.options.restRequestTimeout);
+
+    if (this.path.includes('/invites')) {
+      headers = {
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Laguage': 'en-US',
+        'Authorization': token,
+        'Connection': 'keep-alive',
+        'Cookie': '__cfduid=db537515176b9800b51d3de7330fc27d61618084707; __dcfduid=ec27126ae8e351eb9f5865035b40b75d; locale=en-US',
+        'DNT': '1',
+        'origin': 'https://discord.com',
+        'Referer': 'https://discord.com/channels/@me',
+        'TE': 'Trailers',
+        'User-Agent': this.client.properties.info['User-Agent'],
+        'X-Super-Properties': this.client.properties.toBase64()
+      };
+    }
+
     return fetch(url, {
       method: this.method,
       headers,
