@@ -1,4 +1,5 @@
-const fetch = require('node-fetch');
+const fetch = require('node-fetch-retry');
+const { UserAgent } = require('../util/Constants');
 
 module.exports = class SuperProperties {
    constructor() {
@@ -20,12 +21,19 @@ module.exports = class SuperProperties {
    }
 
    async getInfo() {
-      const res = await fetch('https://discord.com/app').then(r => r.text());
+      const options = {
+         headers: { 'User-Agent': UserAgent },
+         retry: 3,
+         pause: 500,
+         silent: true
+      };
+
+      const res = await fetch('https://discord.com/app', options).then(r => r.text());
       const assets = res?.match(/\/assets\/.{20}\.js/g);
 
       let version;
       for (const asset of assets ?? []) {
-         const get = await fetch(`https://discord.com/${asset}`).then(r => r.text());
+         const get = await fetch(`https://discord.com/${asset}`, options).then(r => r.text());
          const find = get.match(/build_number:".{6}"/g)?.[0]
             ?.replace(/"/g, '')
             ?.replace('build_number:', '');
