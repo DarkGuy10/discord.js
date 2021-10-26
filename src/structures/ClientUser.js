@@ -24,6 +24,14 @@ class ClientUser extends Structures.get('User') {
       this.verified = data.verified;
     }
 
+    if ('premium' in data) {
+      if (!data['premium_type'] && data.premium == false) {
+        this.premiumType = 0;
+      } else if (data['premium_type']) {
+        this.premiumType = data.premium_type;
+      }
+    }
+
     if ('mfa_enabled' in data) {
       /**
        * If the bot's {@link ClientApplication#owner Owner} has MFA enabled on their account
