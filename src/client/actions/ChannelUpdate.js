@@ -36,6 +36,9 @@ class ChannelUpdateAction extends Action {
           case ChannelTypes.STORE:
             channelClass = StoreChannel;
             break;
+          defaukt:
+            channelClass = TextChannel;
+            break;
         }
 
         // Create the new channel instance and copy over cached data
